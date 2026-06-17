@@ -1,25 +1,84 @@
 import json
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+import datetime
+import statistics
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 
 from app.database import get_db
 from app import models, schemas
-from app.services.youtube import YouTubeService, extract_playlist_id
+from app.services.youtube import YouTubeService, extract_video_id, extract_playlist_id
 from app.services.transcript import TranscriptService
-from app.services.ai import AIService
 
 router = APIRouter()
 
-@router.post("/playlist/analyse", response_model=schemas.PlaylistResponse)
-def analyse_playlist(
-    request: schemas.AnalysisRequest, 
+@router.post("/video/analyse", response_model=schemas.VideoResponse)
+def analyse_video(
+    request: schemas.AnalysisRequest,
     db: Session = Depends(get_db),
     x_youtube_key: Optional[str] = Header(None)
 ):
     """
-    Validates URL, extracts playlist ID, fetches metadata & videos (or falls back to mocks),
-    calculates metrics & insights, caches results, and returns the playlist.
+    Extracts video ID, fetches video details, caches it, and returns the video object.
+    """
+    try:
+        video_id = extract_video_id(request.url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    # Check cache first
+    cached_v = db.query(models.Video).filter(models.Video.id == video_id).first()
+    
+    # If cached as mock, but we now have an API key, delete it to fetch real data
+    if cached_v and cached_v.is_mock and x_youtube_key and video_id.lower() not in ["video_dsa", "video_web", "video_ai"]:
+        db.delete(cached_v)
+        db.query(models.Transcript).filter(models.Transcript.video_id == video_id).delete()
+        db.commit()
+        cached_v = None
+        
+    if cached_v:
+        return cached_v
+        
+    # Fetch details
+    try:
+        v_data = YouTubeService.fetch_video_data(video_id, x_youtube_key or "")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    db_vid = models.Video(
+        id=v_data["id"],
+        title=v_data["title"],
+        description=v_data.get("description", ""),
+        thumbnail_url=v_data.get("thumbnail_url", ""),
+        channel_title=v_data.get("channel_title", ""),
+        publish_date=v_data.get("publish_date", ""),
+        duration_seconds=v_data["duration_seconds"],
+        view_count=v_data["view_count"],
+        like_count=v_data["like_count"],
+        comment_count=v_data["comment_count"],
+        category=v_data.get("category", ""),
+        tags=v_data.get("tags", ""),
+        is_mock=v_data.get("is_mock", False)
+    )
+    
+    db_vid = db.merge(db_vid) # merge handles insert-or-update cleanly
+    try:
+        db.commit()
+        db.refresh(db_vid)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database caching failed: {str(e)}")
+        
+    return db_vid
+
+@router.post("/playlist/analyse", response_model=schemas.PlaylistResponse)
+def analyse_playlist(
+    request: schemas.AnalysisRequest,
+    db: Session = Depends(get_db),
+    x_youtube_key: Optional[str] = Header(None)
+):
+    """
+    Extracts playlist ID, fetches metadata and child videos, caches them, and returns.
     """
     try:
         playlist_id = extract_playlist_id(request.url)
@@ -29,30 +88,25 @@ def analyse_playlist(
     # Check cache first
     cached_pl = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
     
-    # If cached as mock, but we now have a custom API key, delete it to fetch real data
+    # If cached as mock, but we now have an API key, delete it to fetch real data
     if cached_pl and cached_pl.is_mock and x_youtube_key and playlist_id.lower() not in ["dsa", "web", "ai"]:
         db.delete(cached_pl)
-        # Delete plans and summaries associated with this playlist
-        db.query(models.StudyPlan).filter(models.StudyPlan.playlist_id == playlist_id).delete()
-        db.query(models.AISummary).filter(
-            (models.AISummary.target_type == "playlist") & (models.AISummary.target_id == playlist_id)
-        ).delete()
+        # Junction entries cascade delete because of ForeignKey, but delete associated videos if they aren't used elsewhere
         db.commit()
         cached_pl = None
         
     if cached_pl:
+        # Load and sort junction items by position
+        sorted_videos = sorted(cached_pl.videos, key=lambda x: x.position)
         return cached_pl
         
-    # Fetch from YouTube (or Mock)
+    # Fetch details
     try:
         pl_data = YouTubeService.fetch_playlist_data(playlist_id, x_youtube_key or "")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
         
-    # Generate Insights
-    insights = AIService.calculate_playlist_insights(pl_data["title"], pl_data["videos"])
-    
-    # Save Playlist
+    # Save Playlist details
     db_pl = models.Playlist(
         id=pl_data["id"],
         title=pl_data["title"],
@@ -61,39 +115,47 @@ def analyse_playlist(
         channel_title=pl_data.get("channel_title", ""),
         video_count=pl_data["video_count"],
         total_views=pl_data["total_views"],
-        is_mock=pl_data.get("is_mock", False),
+        total_likes=pl_data["total_likes"],
+        total_comments=pl_data["total_comments"],
         total_duration_seconds=pl_data["total_duration_seconds"],
         average_duration_seconds=pl_data["average_duration_seconds"],
-        median_duration_seconds=pl_data["median_duration_seconds"],
         longest_video_id=pl_data.get("longest_video_id"),
         longest_video_title=pl_data.get("longest_video_title"),
         longest_video_seconds=pl_data.get("longest_video_seconds", 0),
         shortest_video_id=pl_data.get("shortest_video_id"),
         shortest_video_title=pl_data.get("shortest_video_title"),
         shortest_video_seconds=pl_data.get("shortest_video_seconds", 0),
-        
-        learning_score=insights["learning_score"],
-        difficulty=insights["difficulty"],
-        skills=json.dumps(insights["skills"]),
-        topics=json.dumps(insights["topics"]),
-        learning_path=json.dumps(insights["learning_path"])
+        is_mock=pl_data.get("is_mock", False)
     )
-    db.add(db_pl)
+    db_pl = db.merge(db_pl)
     
-    # Save Videos
+    # Save Videos and Junction associations
     for v in pl_data["videos"]:
+        # Save video
         db_vid = models.Video(
             id=v["id"],
-            playlist_id=pl_data["id"],
             title=v["title"],
             description=v.get("description", ""),
             thumbnail_url=v.get("thumbnail_url", ""),
+            channel_title=v.get("channel_title", ""),
+            publish_date=v.get("publish_date", ""),
             duration_seconds=v["duration_seconds"],
             view_count=v["view_count"],
-            publish_date=v.get("publish_date", ""),
+            like_count=v["like_count"],
+            comment_count=v["comment_count"],
+            category=v.get("category", ""),
+            tags=v.get("tags", ""),
+            is_mock=pl_data.get("is_mock", False)
+        )
+        db.merge(db_vid)
+        
+        # Save Junction Link
+        db_link = models.PlaylistVideo(
+            playlist_id=pl_data["id"],
+            video_id=v["id"],
             position=v["position"]
         )
-        db.add(db_vid)
+        db.merge(db_link)
         
     try:
         db.commit()
@@ -104,47 +166,126 @@ def analyse_playlist(
         
     return db_pl
 
-@router.get("/playlist/{playlist_id}", response_model=schemas.PlaylistResponse)
-def get_playlist(playlist_id: str, db: Session = Depends(get_db)):
+@router.post("/video/compare", response_model=schemas.VideoComparisonResponse)
+def compare_videos(
+    request: schemas.CompareRequest,
+    db: Session = Depends(get_db),
+    x_youtube_key: Optional[str] = Header(None)
+):
     """
-    Retrieves a previously cached playlist.
+    Analyzes two video URLs side-by-side and returns their comparison metrics.
     """
-    playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
-    if not playlist:
-        raise HTTPException(status_code=404, detail="Playlist not found. Please run analysis first.")
-    return playlist
+    # Analyze Video 1
+    req1 = schemas.AnalysisRequest(url=request.url_1)
+    v1 = analyse_video(req1, db, x_youtube_key)
+    
+    # Analyze Video 2
+    req2 = schemas.AnalysisRequest(url=request.url_2)
+    v2 = analyse_video(req2, db, x_youtube_key)
+    
+    # Calculate comparative statistics
+    v1_age_days = max(1, (datetime.date.today() - datetime.datetime.strptime(v1.publish_date, "%Y-%m-%d").date()).days)
+    v2_age_days = max(1, (datetime.date.today() - datetime.datetime.strptime(v2.publish_date, "%Y-%m-%d").date()).days)
+    
+    comparison_metrics = {
+        "views_ratio": round(v1.view_count / v2.view_count if v2.view_count > 0 else 1.0, 2),
+        "views_diff": v1.view_count - v2.view_count,
+        "likes_diff": v1.like_count - v2.like_count,
+        "comments_diff": v1.comment_count - v2.comment_count,
+        "duration_diff_seconds": v1.duration_seconds - v2.duration_seconds,
+        "age_diff_days": v1_age_days - v2_age_days,
+        "like_view_ratio_1": round((v1.like_count / v1.view_count) * 100, 2) if v1.view_count > 0 else 0.0,
+        "like_view_ratio_2": round((v2.like_count / v2.view_count) * 100, 2) if v2.view_count > 0 else 0.0,
+        "views_per_day_1": round(v1.view_count / v1_age_days, 1),
+        "views_per_day_2": round(v2.view_count / v2_age_days, 1),
+    }
+    
+    return schemas.VideoComparisonResponse(
+        video_1=v1,
+        video_2=v2,
+        comparison_metrics=comparison_metrics
+    )
+
+@router.post("/playlist/compare", response_model=schemas.PlaylistComparisonResponse)
+def compare_playlists(
+    request: schemas.CompareRequest,
+    db: Session = Depends(get_db),
+    x_youtube_key: Optional[str] = Header(None)
+):
+    """
+    Analyzes two playlist URLs side-by-side and returns comparison aggregates.
+    """
+    # Analyze Playlist 1
+    req1 = schemas.AnalysisRequest(url=request.url_1)
+    pl1 = analyse_playlist(req1, db, x_youtube_key)
+    
+    # Analyze Playlist 2
+    req2 = schemas.AnalysisRequest(url=request.url_2)
+    pl2 = analyse_playlist(req2, db, x_youtube_key)
+    
+    # Parse upload timelines for gap computations
+    def get_upload_timeline_metrics(videos_junction):
+        if not videos_junction:
+            return 0.0
+        dates = []
+        for v_junction in videos_junction:
+            p_date = v_junction.video.publish_date
+            if p_date:
+                dates.append(datetime.datetime.strptime(p_date, "%Y-%m-%d").date())
+        dates.sort()
+        if len(dates) < 2:
+            return 0.0
+        gaps = [(dates[i] - dates[i-1]).days for i in range(1, len(dates))]
+        return round(statistics.mean(gaps), 1)
+
+    gap_1 = get_upload_timeline_metrics(pl1.videos)
+    gap_2 = get_upload_timeline_metrics(pl2.videos)
+    
+    comparison_metrics = {
+        "duration_ratio": round(pl1.total_duration_seconds / pl2.total_duration_seconds if pl2.total_duration_seconds > 0 else 1.0, 2),
+        "duration_diff_seconds": pl1.total_duration_seconds - pl2.total_duration_seconds,
+        "video_count_diff": pl1.video_count - pl2.video_count,
+        "views_diff": pl1.total_views - pl2.total_views,
+        "likes_diff": pl1.total_likes - pl2.total_likes,
+        "comments_diff": pl1.total_comments - pl2.total_comments,
+        "average_gap_days_1": gap_1,
+        "average_gap_days_2": gap_2
+    }
+    
+    return schemas.PlaylistComparisonResponse(
+        playlist_1=pl1,
+        playlist_2=pl2,
+        comparison_metrics=comparison_metrics
+    )
 
 @router.get("/video/{video_id}/transcript", response_model=schemas.TranscriptResponse)
 def get_video_transcript(video_id: str, title: str = "", db: Session = Depends(get_db)):
     """
-    Fetches transcripts, processes word counts/keywords, and caches results.
+    Fetches captions, word/character count metrics, caches, and returns.
     """
     cached_tr = db.query(models.Transcript).filter(models.Transcript.video_id == video_id).first()
     if cached_tr:
-        # Re-parse JSON string column
         return schemas.TranscriptResponse(
             video_id=cached_tr.video_id,
             raw_text=cached_tr.raw_text,
             word_count=cached_tr.word_count,
+            character_count=cached_tr.character_count,
             speaking_duration_seconds=cached_tr.speaking_duration_seconds,
-            keywords=json.loads(cached_tr.keywords or "[]"),
-            topics=json.loads(cached_tr.topics or "[]"),
             segments=json.loads(cached_tr.segments or "[]")
         )
         
-    # Fetch transcript
+    # Fetch live
     tr_data = TranscriptService.get_transcript(video_id, title)
     
     db_tr = models.Transcript(
         video_id=video_id,
         raw_text=tr_data["raw_text"],
         word_count=tr_data["word_count"],
+        character_count=tr_data["character_count"],
         speaking_duration_seconds=tr_data["speaking_duration_seconds"],
-        keywords=json.dumps(tr_data["keywords"]),
-        topics=json.dumps(tr_data["topics"]),
         segments=json.dumps(tr_data["segments"])
     )
-    db.add(db_tr)
+    db.merge(db_tr)
     
     try:
         db.commit()
@@ -156,202 +297,19 @@ def get_video_transcript(video_id: str, title: str = "", db: Session = Depends(g
         video_id=video_id,
         raw_text=tr_data["raw_text"],
         word_count=tr_data["word_count"],
+        character_count=tr_data["character_count"],
         speaking_duration_seconds=tr_data["speaking_duration_seconds"],
-        keywords=tr_data["keywords"],
-        topics=tr_data["topics"],
         segments=tr_data["segments"]
     )
 
-@router.get("/video/{video_id}/summary", response_model=schemas.AISummaryResponse)
-def get_video_summary(video_id: str, title: str = "", db: Session = Depends(get_db)):
+@router.get("/video/{video_id}/replay-intensity")
+def get_video_replay_intensity(video_id: str, db: Session = Depends(get_db)):
     """
-    Returns AI summarized key concepts, important points, and takeaways.
+    Generates and returns mock replay intensity peaks and smooth charts for the video.
     """
-    # Check cache
-    cached_sum = db.query(models.AISummary).filter(
-        models.AISummary.target_type == "video",
-        models.AISummary.target_id == video_id
-    ).first()
+    # Find video duration
+    video = db.query(models.Video).filter(models.Video.id == video_id).first()
+    duration = video.duration_seconds if video else 600
     
-    if cached_sum:
-        return schemas.AISummaryResponse(
-            target_type="video",
-            target_id=video_id,
-            summary=json.loads(cached_sum.summary_json)
-        )
-        
-    # Get transcript
-    transcript = db.query(models.Transcript).filter(models.Transcript.video_id == video_id).first()
-    raw_text = transcript.raw_text if transcript else ""
-    
-    # Generate summary
-    sum_data = AIService.generate_video_summary(video_id, title, raw_text)
-    
-    db_sum = models.AISummary(
-        target_type="video",
-        target_id=video_id,
-        summary_json=json.dumps(sum_data)
-    )
-    db.add(db_sum)
-    db.commit()
-    
-    return schemas.AISummaryResponse(
-        target_type="video",
-        target_id=video_id,
-        summary=sum_data
-    )
-
-@router.get("/playlist/{playlist_id}/summary", response_model=schemas.AISummaryResponse)
-def get_playlist_summary(playlist_id: str, db: Session = Depends(get_db)):
-    """
-    Returns high-level course summary: learning objectives, topics covered, and skills taught.
-    """
-    cached_sum = db.query(models.AISummary).filter(
-        models.AISummary.target_type == "playlist",
-        models.AISummary.target_id == playlist_id
-    ).first()
-    
-    if cached_sum:
-        return schemas.AISummaryResponse(
-            target_type="playlist",
-            target_id=playlist_id,
-            summary=json.loads(cached_sum.summary_json)
-        )
-        
-    playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
-    if not playlist:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Playlist not found")
-        
-    vids = [{"title": v.title, "duration_seconds": v.duration_seconds, "position": v.position} for v in playlist.videos]
-    sum_data = AIService.generate_playlist_summary(playlist.title, vids)
-    
-    db_sum = models.AISummary(
-        target_type="playlist",
-        target_id=playlist_id,
-        summary_json=json.dumps(sum_data)
-    )
-    db.add(db_sum)
-    db.commit()
-    
-    return schemas.AISummaryResponse(
-        target_type="playlist",
-        target_id=playlist_id,
-        summary=sum_data
-    )
-
-@router.get("/video/{video_id}/notes", response_model=schemas.AISummaryResponse)
-def get_video_revision_notes(video_id: str, title: str = "", db: Session = Depends(get_db)):
-    """
-    Generates study notes, definitions glossary, and revision sheets.
-    """
-    cached_notes = db.query(models.AISummary).filter(
-        models.AISummary.target_type == "notes",
-        models.AISummary.target_id == video_id
-    ).first()
-    
-    if cached_notes:
-        return schemas.AISummaryResponse(
-            target_type="notes",
-            target_id=video_id,
-            summary=json.loads(cached_notes.summary_json)
-        )
-        
-    transcript = db.query(models.Transcript).filter(models.Transcript.video_id == video_id).first()
-    raw_text = transcript.raw_text if transcript else ""
-    
-    notes_data = AIService.generate_revision_notes(title, raw_text)
-    
-    db_notes = models.AISummary(
-        target_type="notes",
-        target_id=video_id,
-        summary_json=json.dumps(notes_data)
-    )
-    db.add(db_notes)
-    db.commit()
-    
-    return schemas.AISummaryResponse(
-        target_type="notes",
-        target_id=video_id,
-        summary=notes_data
-    )
-
-@router.post("/playlist/{playlist_id}/plan", response_model=schemas.StudyPlanResponse)
-def get_study_plan(playlist_id: str, request: schemas.StudyPlanRequest, db: Session = Depends(get_db)):
-    """
-    Computes a customizable day-by-day learning schedule based on targeted study speed.
-    """
-    cached_plan = db.query(models.StudyPlan).filter(
-        models.StudyPlan.playlist_id == playlist_id,
-        models.StudyPlan.daily_time_minutes == request.daily_time_minutes
-    ).first()
-    
-    if cached_plan:
-        return schemas.StudyPlanResponse(
-            playlist_id=playlist_id,
-            daily_time_minutes=request.daily_time_minutes,
-            schedule=json.loads(cached_plan.plan_json)
-        )
-        
-    playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
-    if not playlist:
-        raise HTTPException(status_code=404, detail="Playlist not found")
-        
-    videos = [
-        {"id": v.id, "title": v.title, "duration_seconds": v.duration_seconds, "position": v.position} 
-        for v in sorted(playlist.videos, key=lambda x: x.position)
-    ]
-    
-    plan_data = AIService.generate_study_plan(playlist.title, videos, request.daily_time_minutes)
-    
-    db_plan = models.StudyPlan(
-        playlist_id=playlist_id,
-        daily_time_minutes=request.daily_time_minutes,
-        plan_json=json.dumps(plan_data["schedule"])
-    )
-    db.add(db_plan)
-    db.commit()
-    
-    return schemas.StudyPlanResponse(
-        playlist_id=playlist_id,
-        daily_time_minutes=request.daily_time_minutes,
-        schedule=plan_data["schedule"]
-    )
-
-@router.post("/playlist/compare", response_model=schemas.ComparisonResponse)
-def compare_playlists(request: schemas.CompareRequest, db: Session = Depends(get_db)):
-    """
-    Compares two playlists side by side across metrics, durations, and content densities.
-    """
-    pl_1 = db.query(models.Playlist).filter(models.Playlist.id == request.playlist_id_1).first()
-    pl_2 = db.query(models.Playlist).filter(models.Playlist.id == request.playlist_id_2).first()
-    
-    if not pl_1 or not pl_2:
-        raise HTTPException(status_code=404, detail="One or both playlists were not found. Please analyze them first.")
-        
-    # Calculate comparative statistics
-    p1_dur_hrs = pl_1.total_duration_seconds / 3600
-    p2_dur_hrs = pl_2.total_duration_seconds / 3600
-    
-    p1_topics = set(json.loads(pl_1.topics or "[]"))
-    p2_topics = set(json.loads(pl_2.topics or "[]"))
-    overlap_topics = p1_topics.intersection(p2_topics)
-    
-    comparison_metrics = {
-        "duration_ratio": round(p1_dur_hrs / p2_dur_hrs if p2_dur_hrs > 0 else 1.0, 2),
-        "video_count_diff": pl_1.video_count - pl_2.video_count,
-        "shared_topics": list(overlap_topics),
-        "shared_topics_count": len(overlap_topics),
-        "p1_has_more_depth": p1_dur_hrs > p2_dur_hrs,
-        "difficulty_comparison": {
-            "p1": pl_1.difficulty,
-            "p2": pl_2.difficulty,
-            "same": pl_1.difficulty == pl_2.difficulty
-        },
-        "learning_score_diff": pl_1.learning_score - pl_2.learning_score
-    }
-    
-    return schemas.ComparisonResponse(
-        playlist_1=pl_1,
-        playlist_2=pl_2,
-        comparison_metrics=comparison_metrics
-    )
+    data = YouTubeService.get_most_replayed_data(video_id, duration)
+    return data
