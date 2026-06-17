@@ -5,10 +5,6 @@ import { api, Playlist } from "./services/api";
 import OverviewTab from "./components/OverviewTab";
 import VideoTableTab from "./components/VideoTableTab";
 import TranscriptTab from "./components/TranscriptTab";
-import AISummaryTab from "./components/AISummaryTab";
-import PlannerTab from "./components/PlannerTab";
-import InsightsTab from "./components/InsightsTab";
-import CompareTab from "./components/CompareTab";
 import { 
   Play, 
   Search, 
@@ -40,7 +36,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<"overview" | "videos" | "transcript" | "ai" | "planner" | "insights" | "compare">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "videos" | "transcript">("overview");
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   // 1. Parse URL Parameter on load for deep linking
@@ -370,42 +366,6 @@ export default function Home() {
                 <Clock size={16} /> Caption Intelligence
               </button>
 
-              <button
-                onClick={() => setActiveTab("ai")}
-                className={`flex-shrink-0 lg:w-full py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center gap-2.5 cursor-pointer transition-all ${
-                  activeTab === "ai" ? "bg-indigo-500/10 text-indigo-400" : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <Brain size={16} /> AI Summary & Notes
-              </button>
-
-              <button
-                onClick={() => setActiveTab("planner")}
-                className={`flex-shrink-0 lg:w-full py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center gap-2.5 cursor-pointer transition-all ${
-                  activeTab === "planner" ? "bg-indigo-500/10 text-indigo-400" : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <BookOpen size={16} /> Smart Study Planner
-              </button>
-
-              <button
-                onClick={() => setActiveTab("insights")}
-                className={`flex-shrink-0 lg:w-full py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center gap-2.5 cursor-pointer transition-all ${
-                  activeTab === "insights" ? "bg-indigo-500/10 text-indigo-400" : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <Layers size={16} /> Prereqs & Skills
-              </button>
-
-              <button
-                onClick={() => setActiveTab("compare")}
-                className={`flex-shrink-0 lg:w-full py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center gap-2.5 cursor-pointer transition-all ${
-                  activeTab === "compare" ? "bg-indigo-500/10 text-indigo-400" : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <Scale size={16} /> Compare Playlists
-              </button>
-
             </div>
           </aside>
 
@@ -442,10 +402,6 @@ export default function Home() {
               {activeTab === "overview" && <OverviewTab playlist={playlist} />}
               {activeTab === "videos" && <VideoTableTab playlist={playlist} />}
               {activeTab === "transcript" && <TranscriptTab playlist={playlist} />}
-              {activeTab === "ai" && <AISummaryTab playlist={playlist} />}
-              {activeTab === "planner" && <PlannerTab playlist={playlist} />}
-              {activeTab === "insights" && <InsightsTab playlist={playlist} />}
-              {activeTab === "compare" && <CompareTab playlist={playlist} />}
             </div>
 
           </main>
