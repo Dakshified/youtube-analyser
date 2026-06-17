@@ -1,27 +1,25 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { api, VideoMultiResponse, PlaylistMultiResponse, ChannelMultiResponse } from "./services/api";
+import { api, VideoMultiResponse, PlaylistMultiResponse } from "./services/api";
 import VideoDashboard from "./components/VideoDashboard";
 import PlaylistDashboard from "./components/PlaylistDashboard";
-import ChannelDashboard from "./components/ChannelDashboard";
 import { 
-  Search, Clock, Sparkles, History, Info, AlertCircle, ArrowLeft, Database, Key, LayoutGrid
+  Search, Clock, Sparkles, History, Info, AlertCircle, ArrowLeft, Database, LayoutGrid
 } from "lucide-react";
 
-type ActiveMode = "video" | "playlist" | "channel";
+type ActiveMode = "video" | "playlist";
 
 interface HistoryItem {
   id: string;
   title: string;
   creator: string;
-  type: "video" | "playlist" | "channel";
+  type: "video" | "playlist";
 }
 
 export default function Home() {
   const [activeMode, setActiveMode] = useState<ActiveMode>("video");
   const [inputText, setInputText] = useState("");
-  const [youtubeKey, setYoutubeKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -29,7 +27,6 @@ export default function Home() {
   // Responses
   const [videoResponse, setVideoResponse] = useState<VideoMultiResponse | null>(null);
   const [playlistResponse, setPlaylistResponse] = useState<PlaylistMultiResponse | null>(null);
-  const [channelResponse, setChannelResponse] = useState<ChannelMultiResponse | null>(null);
 
   // Load cached settings
   useEffect(() => {
@@ -37,13 +34,9 @@ export default function Home() {
     if (cachedHistory) {
       try { setHistory(JSON.parse(cachedHistory)); } catch (e) { console.error(e); }
     }
-    const cachedKey = localStorage.getItem("tubeintel_yt_key_v3");
-    if (cachedKey) {
-      setYoutubeKey(cachedKey);
-    }
   }, []);
 
-  const saveToHistory = (id: string, title: string, creator: string, type: "video" | "playlist" | "channel") => {
+  const saveToHistory = (id: string, title: string, creator: string, type: "video" | "playlist") => {
     const newItem: HistoryItem = { id, title, creator, type };
     setHistory((prev) => {
       const filtered = prev.filter(item => item.id !== id);
@@ -56,7 +49,6 @@ export default function Home() {
   const resetResults = () => {
     setVideoResponse(null);
     setPlaylistResponse(null);
-    setChannelResponse(null);
     setError("");
   };
 
@@ -83,7 +75,7 @@ export default function Home() {
 
     try {
       if (mode === "video") {
-        const data = await api.analyseVideo(parsedUrls, youtubeKey);
+        const data = await api.analyseVideo(parsedUrls);
         setVideoResponse(data);
         // Save first video as history
         if (data.videos.length > 0) {
@@ -91,18 +83,11 @@ export default function Home() {
           saveToHistory(first.id, first.title, first.channel_title, "video");
         }
       } else if (mode === "playlist") {
-        const data = await api.analysePlaylist(parsedUrls, youtubeKey);
+        const data = await api.analysePlaylist(parsedUrls);
         setPlaylistResponse(data);
         if (data.playlists.length > 0) {
           const first = data.playlists[0];
           saveToHistory(first.id, first.title, first.channel_title, "playlist");
-        }
-      } else if (mode === "channel") {
-        const data = await api.analyseChannel(parsedUrls, youtubeKey);
-        setChannelResponse(data);
-        if (data.channels.length > 0) {
-          const first = data.channels[0];
-          saveToHistory(first.id, first.title, first.handle || first.id, "channel");
         }
       }
     } catch (err: any) {
@@ -120,7 +105,7 @@ export default function Home() {
     handleAnalyse(item.id, item.type);
   };
 
-  const hasResult = videoResponse || playlistResponse || channelResponse;
+  const hasResult = videoResponse || playlistResponse;
 
   return (
     <div className="flex-1 flex flex-col max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 min-h-screen">
@@ -145,7 +130,7 @@ export default function Home() {
           </div>
 
           {/* Tab Selector */}
-          <div className="flex bg-zinc-900 p-1 border border-zinc-800 rounded-xl mb-6 gap-1 w-full max-w-md">
+          <div className="flex bg-zinc-900 p-1 border border-zinc-800 rounded-xl mb-6 gap-1 w-full max-w-sm">
             <button
               onClick={() => { setActiveMode("video"); setError(""); setInputText(""); }}
               className={`flex-1 text-xs font-bold py-2 px-3 rounded-lg cursor-pointer transition-all ${
@@ -162,14 +147,6 @@ export default function Home() {
             >
               Playlist Analyzer
             </button>
-            <button
-              onClick={() => { setActiveMode("channel"); setError(""); setInputText(""); }}
-              className={`flex-1 text-xs font-bold py-2 px-3 rounded-lg cursor-pointer transition-all ${
-                activeMode === "channel" ? "bg-indigo-600 text-white" : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              Channel Analyzer
-            </button>
           </div>
 
           {/* Form Area */}
@@ -177,16 +154,14 @@ export default function Home() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                  Paste Video, Playlist or Channel URL / Handle
+                  Paste Video or Playlist URL
                 </label>
                 <textarea
                   rows={4}
                   placeholder={
                     activeMode === "video"
                       ? "Paste video link(s)...\n- Single URL: analyzes stats & transcript\n- Multiple URLs (separated by space/comma): compares up to 4 videos"
-                      : activeMode === "playlist"
-                      ? "Paste playlist link(s)...\n- Single URL: analyzes aggregations & speed multipliers\n- Multiple URLs: compares aggregates and per-position lessons"
-                      : "Paste channel link, handle (@username), or ID...\n- Single Channel: analyzes overview, searchable video list, timeline & activity charts\n- Multiple Channels: compares channel metrics side-by-side"
+                      : "Paste playlist link(s)...\n- Single URL: analyzes aggregations & speed multipliers\n- Multiple URLs: compares aggregates and per-position lessons"
                   }
                   className="w-full bg-zinc-950 border border-zinc-800 focus:border-indigo-600 rounded-xl p-3.5 text-xs text-zinc-200 outline-none transition-colors resize-none custom-scrollbar placeholder-zinc-750"
                   value={inputText}
@@ -207,31 +182,6 @@ export default function Home() {
             </div>
 
             {/* YouTube API Key settings */}
-            <div className="border-t border-zinc-900/60 pt-4 space-y-2.5">
-              <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                <span className="flex items-center gap-1.5"><Key size={12} /> API Access Key</span>
-                <a 
-                  href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-indigo-400 hover:underline capitalize font-semibold normal-case"
-                >
-                  Get Key
-                </a>
-              </div>
-              <input
-                type="password"
-                placeholder="Enter YouTube API Key..."
-                className="w-full bg-zinc-950 border border-zinc-800 focus:border-indigo-600 rounded-lg py-2 px-3 text-xs text-zinc-300 outline-none transition-colors placeholder-zinc-750"
-                value={youtubeKey}
-                onChange={(e) => {
-                  const val = e.target.value.trim();
-                  setYoutubeKey(val);
-                  localStorage.setItem("tubeintel_yt_key_v3", val);
-                }}
-              />
-            </div>
-
             {/* Error Message */}
             {error && (
               <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-3 rounded-xl flex items-center gap-2">
@@ -239,11 +189,6 @@ export default function Home() {
                 <span>{error}</span>
               </div>
             )}
-            
-            <div className="text-[10px] text-zinc-500 text-center flex justify-center items-center gap-1">
-              <Info size={11} />
-              <span>Demos keys: `video_dsa` for videos, `dsa` for playlists, and `@dsa`, `@web`, `@ai` for channels.</span>
-            </div>
           </div>
 
           {/* History Panel */}
@@ -312,7 +257,6 @@ export default function Home() {
 
           {videoResponse && <VideoDashboard response={videoResponse} />}
           {playlistResponse && <PlaylistDashboard response={playlistResponse} />}
-          {channelResponse && <ChannelDashboard response={channelResponse} />}
         </div>
       )}
 

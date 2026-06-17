@@ -8,7 +8,7 @@ class TranscriptService:
         Retrieves transcript for a video.
         Falls back to generating mock transcripts if YouTube captions are disabled or unavailable.
         """
-        is_mock = video_id.startswith("mock_")
+        is_mock = video_id.startswith("mock_") or video_id.lower() in ["video_dsa", "video_web", "video_ai"]
         
         raw_text = ""
         transcript_segments = []
@@ -27,11 +27,10 @@ class TranscriptService:
                         "duration": entry['duration']
                     })
                 raw_text = " ".join(segment_list)
-            except (TranscriptsDisabled, NoTranscriptFound, Exception) as e:
-                print(f"Could not retrieve captions for {video_id}: {str(e)}. Simulating transcript...")
-                raw_text = ""
-                
-        if not raw_text:
+            except Exception as e:
+                print(f"Could not retrieve captions for {video_id}: {str(e)}.")
+                raise ValueError("Transcripts are not available for this video.")
+        else:
             # Generate mock transcript based on video title
             raw_text, transcript_segments = TranscriptService.generate_mock_transcript(video_id, video_title)
             

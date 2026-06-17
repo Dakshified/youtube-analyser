@@ -31,6 +31,16 @@ export default function TranscriptViewer({ video, onSeek }: TranscriptViewerProp
     fetchTranscript();
   }, [video.id, video.title]);
 
+  const formatSpeakingTime = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const secs = Math.round(sec % 60);
+    if (mins > 0) {
+      if (secs === 0) return `${mins} min`;
+      return `${mins} min ${secs} sec`;
+    }
+    return `${secs} sec`;
+  };
+
   const handleCopy = () => {
     if (!transcript) return;
     navigator.clipboard.writeText(transcript.raw_text);
@@ -68,7 +78,7 @@ export default function TranscriptViewer({ video, onSeek }: TranscriptViewerProp
           <h1>Transcript of "${video.title}"</h1>
           <div class="meta">
             Channel: ${video.channel_title} | Publish Date: ${video.publish_date} <br/>
-            Word Count: ${transcript.word_count} | Speaking Time: ${Math.round(transcript.speaking_duration_seconds / 60)} mins
+            Word Count: ${transcript.word_count} | Speaking Time: ${formatSpeakingTime(transcript.speaking_duration_seconds)}
           </div>
           <p>${transcript.raw_text}</p>
           <script>
@@ -91,6 +101,8 @@ export default function TranscriptViewer({ video, onSeek }: TranscriptViewerProp
         seg.text.toLowerCase().includes(search.toLowerCase())
       )
     : [];
+
+  if (error) return null;
 
   return (
     <div className="glass p-5 rounded-2xl space-y-5">
@@ -157,7 +169,7 @@ export default function TranscriptViewer({ video, onSeek }: TranscriptViewerProp
             <div className="bg-zinc-950/40 border border-zinc-800 p-3 rounded-xl text-center">
               <p className="text-[10px] text-zinc-500 uppercase font-semibold">Estimated Speaking Time</p>
               <p className="text-sm font-bold text-zinc-200 mt-1">
-                {Math.round(transcript.speaking_duration_seconds / 60)} min
+                {formatSpeakingTime(transcript.speaking_duration_seconds)}
               </p>
             </div>
           </div>

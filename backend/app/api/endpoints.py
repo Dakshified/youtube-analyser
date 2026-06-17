@@ -250,7 +250,11 @@ def get_video_transcript(video_id: str, title: str = "", db: Session = Depends(g
     Fetches captions, word/character count metrics, caches, and returns.
     """
     cached_tr = db.query(models.Transcript).filter(models.Transcript.video_id == video_id).first()
-    if cached_tr:
+    
+    is_real_video = not (video_id.startswith("mock_") or video_id.lower() in ["video_dsa", "video_web", "video_ai"])
+    is_mock_transcript = cached_tr and cached_tr.raw_text.startswith("Hello everyone and welcome back to the channel.")
+    
+    if cached_tr and not (is_real_video and is_mock_transcript):
         return schemas.TranscriptResponse(
             video_id=cached_tr.video_id,
             raw_text=cached_tr.raw_text,
@@ -260,7 +264,10 @@ def get_video_transcript(video_id: str, title: str = "", db: Session = Depends(g
             segments=json.loads(cached_tr.segments or "[]")
         )
         
-    tr_data = TranscriptService.get_transcript(video_id, title)
+    try:
+        tr_data = TranscriptService.get_transcript(video_id, title)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
     
     db_tr = models.Transcript(
         video_id=video_id,

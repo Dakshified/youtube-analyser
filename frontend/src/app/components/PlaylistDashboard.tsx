@@ -32,9 +32,21 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
   const [seekTimes, setSeekTimes] = useState<Record<string, number>>({});
 
   const formatDuration = (sec: number) => {
-    const hrs = Math.floor(sec / 3600);
-    const mins = Math.floor((sec % 3600) / 60);
-    return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+    const totalSecs = Math.round(sec);
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    
+    if (hrs > 0) {
+      if (mins === 0 && secs === 0) return `${hrs}h`;
+      if (secs === 0) return `${hrs}h ${mins}m`;
+      return `${hrs}h ${mins}m ${secs}s`;
+    }
+    if (mins > 0) {
+      if (secs === 0) return `${mins}m`;
+      return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
   };
 
   const calculateRatios = (video: any) => {
@@ -399,19 +411,17 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
               </div>
               <div>
                 <span className="text-[10px] text-zinc-500 uppercase font-semibold">Average Video length</span>
-                <p className="text-base font-extrabold text-zinc-200 mt-1">{Math.round(singlePlaylist.average_duration_seconds / 60)} mins</p>
+                <p className="text-base font-extrabold text-zinc-200 mt-1">{formatDuration(singlePlaylist.average_duration_seconds)}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {speedMultipliers.map((s, i) => {
                 const durationSecs = singlePlaylist.total_duration_seconds / s.speed;
-                const hrs = Math.floor(durationSecs / 3600);
-                const mins = Math.floor((durationSecs % 3600) / 60);
                 return (
                   <div key={i} className="bg-zinc-950/40 border border-zinc-800 p-3 rounded-xl text-center">
                     <span className="text-[9px] text-zinc-500 font-bold">{s.label}</span>
-                    <p className="text-xs font-extrabold text-zinc-200 mt-0.5">{hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}</p>
+                    <p className="text-xs font-extrabold text-zinc-200 mt-0.5">{formatDuration(durationSecs)}</p>
                   </div>
                 );
               })}

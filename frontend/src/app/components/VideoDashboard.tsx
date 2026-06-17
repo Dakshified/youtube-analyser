@@ -43,12 +43,21 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
   }, [activeVideo?.id]);
 
   const formatDuration = (sec: number) => {
-    const hrs = Math.floor(sec / 3600);
-    const mins = Math.floor((sec % 3600) / 60);
-    const secs = sec % 60;
-    return hrs > 0 
-      ? `${hrs}h ${mins}m` 
-      : `${mins}m ${secs}s`;
+    const totalSecs = Math.round(sec);
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    
+    if (hrs > 0) {
+      if (mins === 0 && secs === 0) return `${hrs}h`;
+      if (secs === 0) return `${hrs}h ${mins}m`;
+      return `${hrs}h ${mins}m ${secs}s`;
+    }
+    if (mins > 0) {
+      if (secs === 0) return `${mins}m`;
+      return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
   };
 
   const calculateRatios = (video: Video) => {
