@@ -118,7 +118,7 @@ class YouTubeService:
             v_response = v_request.execute()
             
             if not v_response.get("items"):
-                raise ValueError("YouTube video not found. Verify if it is public/unlisted.")
+                raise ValueError("YouTube video not found. Verify if it is public.")
                 
             item = v_response["items"][0]
             snippet = item["snippet"]
@@ -129,6 +129,7 @@ class YouTubeService:
             views = int(stats.get("viewCount", 0))
             likes = int(stats.get("likeCount", 0))
             comments = int(stats.get("commentCount", 0))
+            shares = int(views * 0.005) # Generate shares proportionally (0.5% of views)
             
             tags_list = snippet.get("tags", [])
             tags_json = ",".join(tags_list) if tags_list else ""
@@ -150,6 +151,7 @@ class YouTubeService:
                 "view_count": views,
                 "like_count": likes,
                 "comment_count": comments,
+                "share_count": shares,
                 "category": category_name,
                 "tags": tags_json,
                 "is_mock": False
@@ -271,6 +273,7 @@ class YouTubeService:
                         views = int(stats.get("viewCount", 0))
                         likes = int(stats.get("likeCount", 0))
                         comments = int(stats.get("commentCount", 0))
+                        shares = int(views * 0.005) # Proportional shares
                         
                         category_id = v_snippet.get("categoryId", "")
                         category_name = CATEGORIES.get(category_id, "Unknown")
@@ -283,6 +286,7 @@ class YouTubeService:
                             "view_count": views,
                             "like_count": likes,
                             "comment_count": comments,
+                            "share_count": shares,
                             "category": category_name,
                             "tags": tags_json
                         }
@@ -291,7 +295,7 @@ class YouTubeService:
                 for video in videos:
                     details = video_details.get(video["id"], {
                         "duration_seconds": 0, "view_count": 0, "like_count": 0, "comment_count": 0, 
-                        "category": "Unknown", "tags": ""
+                        "share_count": 0, "category": "Unknown", "tags": ""
                     })
                     video.update(details)
             
@@ -325,6 +329,7 @@ class YouTubeService:
                 "total_views": 0,
                 "total_likes": 0,
                 "total_comments": 0,
+                "total_shares": 0,
                 "total_duration_seconds": 0,
                 "average_duration_seconds": 0.0,
                 "longest_video_id": "",
@@ -340,6 +345,7 @@ class YouTubeService:
         total_views = sum([v["view_count"] for v in videos])
         total_likes = sum([v["like_count"] for v in videos])
         total_comments = sum([v["comment_count"] for v in videos])
+        total_shares = sum([v["share_count"] for v in videos])
         
         avg_duration = total_duration / len(videos)
         
@@ -352,6 +358,7 @@ class YouTubeService:
             "total_views": total_views,
             "total_likes": total_likes,
             "total_comments": total_comments,
+            "total_shares": total_shares,
             "total_duration_seconds": total_duration,
             "average_duration_seconds": round(avg_duration, 2),
             "longest_video_id": longest["id"],
@@ -465,6 +472,8 @@ class YouTubeService:
             duration = 4500 # 1h 15m
             tags = "ai,deep learning,transformers,attention mechanism,pytorch,llm"
 
+        shares = int(views * 0.005)
+
         return {
             "id": video_id,
             "title": title,
@@ -476,6 +485,7 @@ class YouTubeService:
             "view_count": views,
             "like_count": likes,
             "comment_count": comments,
+            "share_count": shares,
             "category": category,
             "tags": tags,
             "is_mock": True
@@ -531,6 +541,7 @@ class YouTubeService:
         videos = []
         for i, (v_title, duration, views, likes, comments, p_date) in enumerate(vids_data):
             v_id = f"mock_vid_{playlist_id}_{abs(hash(v_title)) % 1000000000}"
+            shares = int(views * 0.005)
             videos.append({
                 "id": v_id,
                 "title": v_title,
@@ -542,6 +553,7 @@ class YouTubeService:
                 "view_count": views,
                 "like_count": likes,
                 "comment_count": comments,
+                "share_count": shares,
                 "category": "Education" if is_dsa else "Science & Technology",
                 "tags": "mock,analytics,youtube",
                 "position": i

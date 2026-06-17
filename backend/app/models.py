@@ -15,6 +15,7 @@ class Playlist(Base):
     total_views = Column(Integer, default=0)
     total_likes = Column(Integer, default=0)
     total_comments = Column(Integer, default=0)
+    total_shares = Column(Integer, default=0)
     is_mock = Column(Boolean, default=False)
     
     # Duration analytics
@@ -47,6 +48,7 @@ class Video(Base):
     view_count = Column(Integer, default=0)
     like_count = Column(Integer, default=0)
     comment_count = Column(Integer, default=0)
+    share_count = Column(Integer, default=0) # Added share count metric
     category = Column(String, nullable=True)
     tags = Column(Text, nullable=True) # JSON list of tags
     is_mock = Column(Boolean, default=False)

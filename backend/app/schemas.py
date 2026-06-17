@@ -2,12 +2,8 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
-class AnalysisRequest(BaseModel):
-    url: str
-
-class CompareRequest(BaseModel):
-    url_1: str
-    url_2: str
+class MultiAnalysisRequest(BaseModel):
+    urls: List[str]
 
 # Video Schemas
 class VideoBase(BaseModel):
@@ -21,6 +17,7 @@ class VideoBase(BaseModel):
     view_count: int
     like_count: int
     comment_count: int
+    share_count: int
     category: Optional[str] = None
     tags: Optional[str] = None # JSON list of strings
     is_mock: bool = False
@@ -50,6 +47,7 @@ class PlaylistBase(BaseModel):
     total_views: int
     total_likes: int
     total_comments: int
+    total_shares: int
     is_mock: bool = False
     total_duration_seconds: int
     average_duration_seconds: float
@@ -79,13 +77,11 @@ class TranscriptResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# Comparison Responses
-class VideoComparisonResponse(BaseModel):
-    video_1: VideoResponse
-    video_2: VideoResponse
-    comparison_metrics: Dict[str, Any]
+# Multi-Item Response wrappers
+class VideoMultiResponse(BaseModel):
+    videos: List[VideoResponse]
+    comparison_metrics: Optional[Dict[str, Any]] = None
 
-class PlaylistComparisonResponse(BaseModel):
-    playlist_1: PlaylistResponse
-    playlist_2: PlaylistResponse
-    comparison_metrics: Dict[str, Any]
+class PlaylistMultiResponse(BaseModel):
+    playlists: List[PlaylistResponse]
+    comparison_metrics: Optional[Dict[str, Any]] = None

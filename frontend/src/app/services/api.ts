@@ -11,6 +11,7 @@ export interface Video {
   view_count: number;
   like_count: number;
   comment_count: number;
+  share_count: number;
   category: string;
   tags: string;
   is_mock: boolean;
@@ -31,6 +32,7 @@ export interface Playlist {
   total_views: number;
   total_likes: number;
   total_comments: number;
+  total_shares: number;
   is_mock: boolean;
   total_duration_seconds: number;
   average_duration_seconds: number;
@@ -63,40 +65,34 @@ export interface ReplayIntensity {
   chart_data: { time: string; intensity: number }[];
 }
 
-export interface VideoComparison {
-  video_1: Video;
-  video_2: Video;
-  comparison_metrics: {
-    views_ratio: number;
-    views_diff: number;
-    likes_diff: number;
-    comments_diff: number;
-    duration_diff_seconds: number;
-    age_diff_days: number;
-    like_view_ratio_1: number;
-    like_view_ratio_2: number;
-    views_per_day_1: number;
-    views_per_day_2: number;
+export interface VideoMultiResponse {
+  videos: Video[];
+  comparison_metrics?: {
+    views_per_day: number[];
+    like_view_ratios: number[];
+    highest_views_idx: number;
+    highest_likes_idx: number;
+    highest_comments_idx: number;
+    highest_shares_idx: number;
+    highest_duration_idx: number;
   };
 }
 
-export interface PlaylistComparison {
-  playlist_1: Playlist;
-  playlist_2: Playlist;
-  comparison_metrics: {
-    duration_ratio: number;
-    duration_diff_seconds: number;
-    video_count_diff: number;
-    views_diff: number;
-    likes_diff: number;
-    comments_diff: number;
-    average_gap_days_1: number;
-    average_gap_days_2: number;
+export interface PlaylistMultiResponse {
+  playlists: Playlist[];
+  comparison_metrics?: {
+    average_gaps: number[];
+    highest_videos_idx: number;
+    highest_views_idx: number;
+    highest_likes_idx: number;
+    highest_comments_idx: number;
+    highest_shares_idx: number;
+    highest_duration_idx: number;
   };
 }
 
 export const api = {
-  async analyseVideo(url: string, youtubeKey?: string): Promise<Video> {
+  async analyseVideo(urls: string[], youtubeKey?: string): Promise<VideoMultiResponse> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (youtubeKey) {
       headers['x-youtube-key'] = youtubeKey;
@@ -104,7 +100,7 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/video/analyse`, {
       method: 'POST',
       headers: headers,
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ urls }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Video analysis failed' }));
@@ -113,7 +109,7 @@ export const api = {
     return res.json();
   },
 
-  async analysePlaylist(url: string, youtubeKey?: string): Promise<Playlist> {
+  async analysePlaylist(urls: string[], youtubeKey?: string): Promise<PlaylistMultiResponse> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (youtubeKey) {
       headers['x-youtube-key'] = youtubeKey;
@@ -121,45 +117,11 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/playlist/analyse`, {
       method: 'POST',
       headers: headers,
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ urls }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Playlist analysis failed' }));
       throw new Error(err.detail || 'Playlist analysis failed');
-    }
-    return res.json();
-  },
-
-  async compareVideos(url1: string, url2: string, youtubeKey?: string): Promise<VideoComparison> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (youtubeKey) {
-      headers['x-youtube-key'] = youtubeKey;
-    }
-    const res = await fetch(`${API_BASE_URL}/video/compare`, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify({ url_1: url1, url_2: url2 }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Video comparison failed' }));
-      throw new Error(err.detail || 'Video comparison failed');
-    }
-    return res.json();
-  },
-
-  async comparePlaylists(url1: string, url2: string, youtubeKey?: string): Promise<PlaylistComparison> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (youtubeKey) {
-      headers['x-youtube-key'] = youtubeKey;
-    }
-    const res = await fetch(`${API_BASE_URL}/playlist/compare`, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify({ url_1: url1, url_2: url2 }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Playlist comparison failed' }));
-      throw new Error(err.detail || 'Playlist comparison failed');
     }
     return res.json();
   },
