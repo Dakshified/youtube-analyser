@@ -16,12 +16,13 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
   // Comparison/Single states
   const [compareMode, setCompareMode] = useState<boolean>(true);
   const [selectedPlaylistIdx, setSelectedPlaylistIdx] = useState<number>(0);
+  const [viewTab, setViewTab] = useState<"list" | "graph">("list");
 
   const activePlaylist = isComparison && !compareMode ? playlists[selectedPlaylistIdx] : playlists[0];
   const singlePlaylist = activePlaylist;
 
   const [search, setSearch] = useState("");
-  const [sortField, setSortField] = useState<"position" | "views" | "duration">("position");
+  const [sortField, setSortField] = useState<"position" | "views" | "duration" | "likes" | "shares" | "comments">("position");
   const [sortAsc, setSortAsc] = useState(true);
   const [activeChart, setActiveChart] = useState<"duration" | "views" | "likes" | "comments" | "shares">("duration");
 
@@ -57,6 +58,9 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
       if (sortField === "position") { valA = a.position; valB = b.position; }
       else if (sortField === "views") { valA = a.video.view_count; valB = b.video.view_count; }
       else if (sortField === "duration") { valA = a.video.duration_seconds; valB = b.video.duration_seconds; }
+      else if (sortField === "likes") { valA = a.video.like_count; valB = b.video.like_count; }
+      else if (sortField === "shares") { valA = a.video.share_count; valB = b.video.share_count; }
+      else if (sortField === "comments") { valA = a.video.comment_count; valB = b.video.comment_count; }
       return sortAsc ? valA - valB : valB - valA;
     });
     return filtered;
@@ -334,117 +338,210 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
 
       {/* ----------------- SINGLE PLAYLIST DASHBOARD ----------------- */}
       {(!isComparison || !compareMode) && singlePlaylist && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-              <div className="glass p-4 rounded-xl space-y-1">
-                <span className="text-[10px] uppercase font-bold text-zinc-500">Videos</span>
-                <p className="text-lg font-extrabold text-zinc-200">{singlePlaylist.video_count}</p>
-              </div>
-              <div className="glass p-4 rounded-xl space-y-1">
-                <span className="text-[10px] uppercase font-bold text-zinc-500">Views</span>
-                <p className="text-lg font-extrabold text-zinc-200">{singlePlaylist.total_views.toLocaleString()}</p>
-              </div>
-              <div className="glass p-4 rounded-xl space-y-1">
-                <span className="text-[10px] uppercase font-bold text-zinc-500">Likes</span>
-                <p className="text-lg font-extrabold text-zinc-200">{singlePlaylist.total_likes.toLocaleString()}</p>
-              </div>
-              <div className="glass p-4 rounded-xl space-y-1">
-                <span className="text-[10px] uppercase font-bold text-zinc-500">Shares</span>
-                <p className="text-lg font-extrabold text-zinc-200">{singlePlaylist.total_shares.toLocaleString()}</p>
-              </div>
-              <div className="glass p-4 rounded-xl space-y-1">
-                <span className="text-[10px] uppercase font-bold text-zinc-500">Comments</span>
-                <p className="text-lg font-extrabold text-zinc-200">{singlePlaylist.total_comments.toLocaleString()}</p>
-              </div>
+        <div className="space-y-6">
+          {/* Key aggregates row */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <div className="glass p-4 rounded-xl space-y-1">
+              <span className="text-[10px] uppercase font-bold text-zinc-500">Videos</span>
+              <p className="text-lg font-extrabold text-zinc-200">{singlePlaylist.video_count}</p>
             </div>
-
-            <div className="glass p-5 rounded-2xl space-y-4">
-              <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-1.5"><Clock size={16} className="text-indigo-400" /> Duration Multipliers</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-zinc-900 pb-4">
-                <div>
-                  <span className="text-[10px] text-zinc-500 uppercase font-semibold">Total Duration</span>
-                  <p className="text-base font-extrabold text-indigo-400 mt-1">{formatDuration(singlePlaylist.total_duration_seconds)}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-zinc-500 uppercase font-semibold">Average Video length</span>
-                  <p className="text-base font-extrabold text-zinc-200 mt-1">{Math.round(singlePlaylist.average_duration_seconds / 60)} mins</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {speedMultipliers.map((s, i) => {
-                  const durationSecs = singlePlaylist.total_duration_seconds / s.speed;
-                  const hrs = Math.floor(durationSecs / 3600);
-                  const mins = Math.floor((durationSecs % 3600) / 60);
-                  return (
-                    <div key={i} className="bg-zinc-950/40 border border-zinc-900 p-3 rounded-xl text-center">
-                      <span className="text-[9px] text-zinc-500 font-bold">{s.label}</span>
-                      <p className="text-xs font-extrabold text-zinc-200 mt-0.5">{hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}</p>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="glass p-4 rounded-xl space-y-1">
+              <span className="text-[10px] uppercase font-bold text-zinc-500">Views</span>
+              <p className="text-lg font-extrabold text-zinc-200">{singlePlaylist.total_views.toLocaleString()}</p>
             </div>
-
-            {/* Distribution metrics */}
-            <div className="glass p-5 rounded-2xl space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-1.5"><BarChart3 size={16} className="text-indigo-400" /> Lesson Distribution</h3>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">Benchmarks across every video in the playlist</p>
-                </div>
-                <div className="flex gap-1 bg-zinc-950/60 p-1 border border-zinc-900 rounded-lg">
-                  {(["duration", "views", "likes", "comments", "shares"] as const).map(c => (
-                    <button
-                      key={c}
-                      onClick={() => setActiveChart(c)}
-                      className={`text-[9px] font-bold px-2 py-0.5 rounded cursor-pointer capitalize ${activeChart === c ? "bg-indigo-500/15 text-indigo-400" : "text-zinc-500"}`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="h-56 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={singleChartData}>
-                    <XAxis dataKey="position" stroke="#52525b" fontSize={9} />
-                    <YAxis stroke="#52525b" fontSize={9} />
-                    <Tooltip contentStyle={{ backgroundColor: "#09090b", borderColor: "#27272a" }} />
-                    <Bar dataKey={activeChart} fill="#6366f1" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="glass p-4 rounded-xl space-y-1">
+              <span className="text-[10px] uppercase font-bold text-zinc-500">Likes</span>
+              <p className="text-lg font-extrabold text-zinc-200">{singlePlaylist.total_likes.toLocaleString()}</p>
+            </div>
+            <div className="glass p-4 rounded-xl space-y-1">
+              <span className="text-[10px] uppercase font-bold text-zinc-500">Shares</span>
+              <p className="text-lg font-extrabold text-zinc-200">{singlePlaylist.total_shares.toLocaleString()}</p>
+            </div>
+            <div className="glass p-4 rounded-xl space-y-1">
+              <span className="text-[10px] uppercase font-bold text-zinc-500">Comments</span>
+              <p className="text-lg font-extrabold text-zinc-200">{singlePlaylist.total_comments.toLocaleString()}</p>
             </div>
           </div>
 
-          <div className="glass p-5 rounded-2xl flex flex-col space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-zinc-150 flex items-center gap-1.5"><List size={16} /> Video Index</h3>
-              <p className="text-[11px] text-zinc-500 mt-0.5">Explore and sort videos</p>
+          {/* Speed Multipliers */}
+          <div className="glass p-5 rounded-2xl space-y-4">
+            <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-1.5"><Clock size={16} className="text-indigo-400" /> Duration Multipliers</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-zinc-900 pb-4">
+              <div>
+                <span className="text-[10px] text-zinc-500 uppercase font-semibold">Total Duration</span>
+                <p className="text-base font-extrabold text-indigo-400 mt-1">{formatDuration(singlePlaylist.total_duration_seconds)}</p>
+              </div>
+              <div>
+                <span className="text-[10px] text-zinc-500 uppercase font-semibold">Average Video length</span>
+                <p className="text-base font-extrabold text-zinc-200 mt-1">{Math.round(singlePlaylist.average_duration_seconds / 60)} mins</p>
+              </div>
             </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 text-zinc-650" size={13} />
-              <input
-                type="text"
-                placeholder="Search videos..."
-                className="w-full bg-zinc-950/60 border border-zinc-850 focus:border-indigo-500 rounded-xl py-2 pl-9 pr-4 text-xs text-zinc-200 outline-none transition-colors"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {speedMultipliers.map((s, i) => {
+                const durationSecs = singlePlaylist.total_duration_seconds / s.speed;
+                const hrs = Math.floor(durationSecs / 3600);
+                const mins = Math.floor((durationSecs % 3600) / 60);
+                return (
+                  <div key={i} className="bg-zinc-950/40 border border-zinc-900 p-3 rounded-xl text-center">
+                    <span className="text-[9px] text-zinc-500 font-bold">{s.label}</span>
+                    <p className="text-xs font-extrabold text-zinc-200 mt-0.5">{hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}</p>
+                  </div>
+                );
+              })}
             </div>
-            <div className="flex-1 max-h-[500px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-              {processedVideos.map(item => (
-                <div key={item.video.id} className="bg-zinc-950/50 border border-zinc-900 p-3 rounded-xl flex gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold text-zinc-350 truncate">{item.position + 1}. {item.video.title}</p>
-                    <p className="text-[9px] text-zinc-500 mt-1">{Math.round(item.video.duration_seconds / 60)}m • {item.video.view_count.toLocaleString()} views</p>
+          </div>
+
+          {/* Unified Lessons Index & Metrics Panel */}
+          <div className="glass p-5 rounded-2xl space-y-5">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-900/60 pb-4">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                  <List size={16} className="text-indigo-400" />
+                  Lessons Index & Analytics
+                </h3>
+                <p className="text-[11px] text-zinc-500 mt-0.5">Explore, search, and benchmark videos in the playlist</p>
+              </div>
+              
+              {/* Tab Selector */}
+              <div className="flex bg-zinc-950/60 p-1 border border-zinc-900 rounded-xl gap-1">
+                <button
+                  onClick={() => setViewTab("list")}
+                  className={`text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer transition-all ${
+                    viewTab === "list" ? "bg-indigo-600 text-white shadow-glow" : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  Detailed List View
+                </button>
+                <button
+                  onClick={() => setViewTab("graph")}
+                  className={`text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer transition-all ${
+                    viewTab === "graph" ? "bg-indigo-600 text-white shadow-glow" : "text-zinc-500 hover:text-indigo-400"
+                  }`}
+                >
+                  Graph View
+                </button>
+              </div>
+            </div>
+
+            {/* Controls bar (always visible) */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-950/30 p-3 rounded-xl border border-zinc-900/40">
+              <div className="relative w-full sm:max-w-xs">
+                <Search className="absolute left-3 top-2.5 text-zinc-650" size={13} />
+                <input
+                  type="text"
+                  placeholder="Search videos by title..."
+                  className="w-full bg-zinc-950/60 border border-zinc-850 focus:border-indigo-500 rounded-xl py-2 pl-9 pr-4 text-xs text-zinc-200 outline-none transition-colors"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Sort by:</label>
+                  <select
+                    value={sortField}
+                    onChange={(e) => setSortField(e.target.value as any)}
+                    className="bg-zinc-950 border border-zinc-850 text-xs text-zinc-250 py-1.5 px-2.5 rounded-lg outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="position">Position (Index)</option>
+                    <option value="views">Views count</option>
+                    <option value="likes">Likes count</option>
+                    <option value="shares">Shares count</option>
+                    <option value="comments">Comments count</option>
+                    <option value="duration">Video duration</option>
+                  </select>
+                </div>
+                
+                <button
+                  onClick={() => setSortAsc(prev => !prev)}
+                  className="bg-zinc-950 hover:bg-zinc-900 border border-zinc-850 p-2 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+                  title={sortAsc ? "Sort Ascending" : "Sort Descending"}
+                >
+                  {sortAsc ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+                </button>
+              </div>
+            </div>
+
+            {/* View Rendering */}
+            {viewTab === "list" ? (
+              <div className="space-y-2.5 max-h-[550px] overflow-y-auto pr-1 custom-scrollbar">
+                {processedVideos.length > 0 ? (
+                  processedVideos.map(item => (
+                    <div
+                      key={item.video.id}
+                      className="bg-zinc-950/50 border border-zinc-900 hover:border-zinc-800 p-3.5 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-colors"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <h4 className="text-xs font-bold text-zinc-250 leading-snug">
+                          {item.position + 1}. {item.video.title}
+                        </h4>
+                        <p className="text-[10px] text-zinc-500 font-medium">
+                          Duration: {formatDuration(item.video.duration_seconds)} • Published: {item.video.publish_date}
+                        </p>
+                      </div>
+                      
+                      {/* Metrics Badges Row */}
+                      <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                        <div className="flex items-center gap-1 bg-indigo-500/5 border border-indigo-500/10 px-2 py-0.5 rounded text-[10px] font-bold text-indigo-400">
+                          <Eye size={11} />
+                          <span>{item.video.view_count.toLocaleString()} views</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-pink-500/5 border border-pink-500/10 px-2 py-0.5 rounded text-[10px] font-bold text-pink-400">
+                          <Heart size={11} />
+                          <span>{item.video.like_count.toLocaleString()} likes</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-teal-500/5 border border-teal-500/10 px-2 py-0.5 rounded text-[10px] font-bold text-teal-400">
+                          <Share2 size={11} />
+                          <span>{item.video.share_count.toLocaleString()} shares</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-violet-500/5 border border-violet-500/10 px-2 py-0.5 rounded text-[10px] font-bold text-violet-400">
+                          <MessageSquare size={11} />
+                          <span>{item.video.comment_count.toLocaleString()} comments</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-xs text-zinc-500 italic bg-zinc-950/20 border border-dashed border-zinc-900 rounded-xl">
+                    No videos matched your search query.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center bg-zinc-950/20 p-2 rounded-xl border border-zinc-900/60">
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Select Metric to Chart:</span>
+                  <div className="flex gap-1">
+                    {(["duration", "views", "likes", "comments", "shares"] as const).map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setActiveChart(c)}
+                        className={`text-[9px] font-bold px-2 py-1 rounded cursor-pointer capitalize transition-colors ${
+                          activeChart === c 
+                            ? "bg-indigo-600 text-white shadow-glow" 
+                            : "bg-zinc-950/40 text-zinc-500 hover:text-zinc-300"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="h-60 w-full bg-zinc-950/20 p-4 border border-zinc-900/40 rounded-xl">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={singleChartData}>
+                      <XAxis dataKey="position" stroke="#52525b" fontSize={9} />
+                      <YAxis stroke="#52525b" fontSize={9} />
+                      <Tooltip contentStyle={{ backgroundColor: "#09090b", borderColor: "#27272a" }} />
+                      <Bar dataKey={activeChart} fill="#6366f1" radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
