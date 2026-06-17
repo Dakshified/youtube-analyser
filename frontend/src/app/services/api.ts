@@ -70,6 +70,8 @@ export interface VideoMultiResponse {
   comparison_metrics?: {
     views_per_day: number[];
     like_view_ratios: number[];
+    share_view_ratios?: number[];
+    comment_view_ratios?: number[];
     highest_views_idx: number;
     highest_likes_idx: number;
     highest_comments_idx: number;
@@ -91,7 +93,83 @@ export interface PlaylistMultiResponse {
   };
 }
 
+export interface Channel {
+  id: string;
+  title: string;
+  handle?: string;
+  description?: string;
+  thumbnail_url?: string;
+  banner_url?: string;
+  subscriber_count: number;
+  view_count: number;
+  video_count: number;
+  published_at?: string;
+  country?: string;
+  uploads_playlist_id?: string;
+  average_views: number;
+  average_likes: number;
+  average_comments: number;
+  average_duration: number;
+  is_mock: boolean;
+  created_at: string;
+  videos: Video[];
+}
+
+export interface ChannelMultiResponse {
+  channels: Channel[];
+  comparison_metrics?: {
+    highest_subscribers_idx: number;
+    highest_total_views_idx: number;
+    highest_videos_idx: number;
+    highest_avg_views_idx: number;
+    highest_avg_likes_idx: number;
+    highest_avg_comments_idx: number;
+  };
+}
+
+export interface SearchChannelResult {
+  id: string;
+  title: string;
+  handle: string;
+  thumbnail_url: string;
+  subscriber_count: number;
+  is_verified: boolean;
+  is_mock: boolean;
+}
+
 export const api = {
+  async searchChannels(query: string, youtubeKey?: string): Promise<SearchChannelResult[]> {
+    const headers: Record<string, string> = {};
+    if (youtubeKey) {
+      headers['x-youtube-key'] = youtubeKey;
+    }
+    const res = await fetch(`${API_BASE_URL}/channel/search?q=${encodeURIComponent(query)}`, {
+      method: 'GET',
+      headers: headers,
+    });
+    if (!res.ok) {
+      throw new Error('Search channels failed');
+    }
+    return res.json();
+  },
+
+  async analyseChannel(urls: string[], youtubeKey?: string): Promise<ChannelMultiResponse> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (youtubeKey) {
+      headers['x-youtube-key'] = youtubeKey;
+    }
+    const res = await fetch(`${API_BASE_URL}/channel/analyse`, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ urls }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Channel analysis failed' }));
+      throw new Error(err.detail || 'Channel analysis failed');
+    }
+    return res.json();
+  },
+
   async analyseVideo(urls: string[], youtubeKey?: string): Promise<VideoMultiResponse> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (youtubeKey) {

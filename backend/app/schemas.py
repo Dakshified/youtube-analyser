@@ -85,3 +85,37 @@ class VideoMultiResponse(BaseModel):
 class PlaylistMultiResponse(BaseModel):
     playlists: List[PlaylistResponse]
     comparison_metrics: Optional[Dict[str, Any]] = None
+
+class ChannelAnalysisRequest(BaseModel):
+    url: str
+
+class ChannelResponse(BaseModel):
+    id: str
+    title: str
+    handle: Optional[str] = None
+    description: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    subscriber_count: int
+    view_count: int
+    video_count: int
+    published_at: Optional[str] = None
+    country: Optional[str] = None
+    uploads_playlist_id: Optional[str] = None
+    
+    average_views: float
+    average_likes: float
+    average_comments: float
+    average_duration: float
+    
+    is_mock: bool = False
+    created_at: datetime
+    videos: List[VideoResponse] = []
+
+    class Config:
+        from_attributes = True
+
+class ChannelMultiResponse(BaseModel):
+    channels: List[ChannelResponse]
+    comparison_metrics: Optional[Dict[str, Any]] = None
+

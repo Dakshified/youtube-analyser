@@ -104,14 +104,14 @@ export default function TranscriptViewer({ video, onSeek }: TranscriptViewerProp
           <div className="flex gap-2 w-full sm:w-auto">
             <button
               onClick={handleCopy}
-              className="flex-1 sm:flex-initial bg-zinc-900 hover:bg-zinc-850 border border-zinc-805 text-zinc-300 py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              className="flex-1 sm:flex-initial bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
             >
               {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
               <span>{copied ? "Copied" : "Copy"}</span>
             </button>
             <button
               onClick={handleExportTxt}
-              className="bg-zinc-900 hover:bg-zinc-850 border border-zinc-805 text-zinc-300 py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              className="bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
               title="Export as TXT"
             >
               <FileText size={13} />
@@ -119,7 +119,7 @@ export default function TranscriptViewer({ video, onSeek }: TranscriptViewerProp
             </button>
             <button
               onClick={handleExportPdf}
-              className="bg-zinc-900 hover:bg-zinc-850 border border-zinc-805 text-zinc-300 py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              className="bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
               title="Export as PDF"
             >
               <Download size={13} />
@@ -146,15 +146,15 @@ export default function TranscriptViewer({ video, onSeek }: TranscriptViewerProp
         <div className="space-y-4">
           {/* Stats Grid */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-zinc-950/40 border border-zinc-900 p-3 rounded-xl text-center">
+            <div className="bg-zinc-950/40 border border-zinc-800 p-3 rounded-xl text-center">
               <p className="text-[10px] text-zinc-500 uppercase font-semibold">Word Count</p>
               <p className="text-sm font-bold text-zinc-200 mt-1">{transcript.word_count.toLocaleString()}</p>
             </div>
-            <div className="bg-zinc-950/40 border border-zinc-900 p-3 rounded-xl text-center">
+            <div className="bg-zinc-950/40 border border-zinc-800 p-3 rounded-xl text-center">
               <p className="text-[10px] text-zinc-500 uppercase font-semibold">Character Count</p>
               <p className="text-sm font-bold text-zinc-200 mt-1">{transcript.character_count.toLocaleString()}</p>
             </div>
-            <div className="bg-zinc-950/40 border border-zinc-900 p-3 rounded-xl text-center">
+            <div className="bg-zinc-950/40 border border-zinc-800 p-3 rounded-xl text-center">
               <p className="text-[10px] text-zinc-500 uppercase font-semibold">Estimated Speaking Time</p>
               <p className="text-sm font-bold text-zinc-200 mt-1">
                 {Math.round(transcript.speaking_duration_seconds / 60)} min
@@ -175,7 +175,7 @@ export default function TranscriptViewer({ video, onSeek }: TranscriptViewerProp
           </div>
 
           {/* Text list */}
-          <div className="h-60 overflow-y-auto border border-zinc-900 rounded-xl bg-zinc-950/30 p-3 space-y-2.5 custom-scrollbar">
+          <div className="h-60 overflow-y-auto border border-zinc-800 rounded-xl bg-zinc-950/30 p-3 space-y-2.5 custom-scrollbar">
             {filteredSegments.length > 0 ? (
               filteredSegments.map((seg, idx) => (
                 <div 

@@ -14,7 +14,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
   const isComparison = playlists.length > 1;
 
   // Comparison/Single states
-  const [compareMode, setCompareMode] = useState<boolean>(true);
+  const [compareMode, setCompareMode] = useState<boolean>(false);
   const [selectedPlaylistIdx, setSelectedPlaylistIdx] = useState<number>(0);
   const [viewTab, setViewTab] = useState<"list" | "graph">("list");
 
@@ -35,6 +35,24 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
     const hrs = Math.floor(sec / 3600);
     const mins = Math.floor((sec % 3600) / 60);
     return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+  };
+
+  const calculateRatios = (video: any) => {
+    const views = video.view_count;
+    const likes = video.like_count;
+    const shares = video.share_count;
+    const comments = video.comment_count;
+
+    return {
+      viewToLike: likes > 0 ? (views / likes).toFixed(1) : "N/A",
+      likeToViewPct: views > 0 ? ((likes / views) * 100).toFixed(2) : "0.00",
+      
+      viewToShare: shares > 0 ? (views / shares).toFixed(1) : "N/A",
+      shareToViewPct: views > 0 ? ((shares / views) * 100).toFixed(2) : "0.00",
+      
+      viewToComment: comments > 0 ? (views / comments).toFixed(1) : "N/A",
+      commentToViewPct: views > 0 ? ((comments / views) * 100).toFixed(2) : "0.00",
+    };
   };
 
   const speedMultipliers = [
@@ -136,6 +154,10 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
         ["Views", ...playlists.map(p => p.total_views)],
         ["Likes", ...playlists.map(p => p.total_likes)],
         ["Shares", ...playlists.map(p => p.total_shares)],
+        ["Comments", ...playlists.map(p => p.total_comments)],
+        ["Like to View Ratio (%)", ...playlists.map(p => p.total_views > 0 ? ((p.total_likes / p.total_views) * 100).toFixed(2) : "0.00")],
+        ["Share to View Ratio (%)", ...playlists.map(p => p.total_views > 0 ? ((p.total_shares / p.total_views) * 100).toFixed(2) : "0.00")],
+        ["Comment to View Ratio (%)", ...playlists.map(p => p.total_views > 0 ? ((p.total_comments / p.total_views) * 100).toFixed(2) : "0.00")],
         ["Duration (Seconds)", ...playlists.map(p => p.total_duration_seconds)]
       ];
     }
@@ -201,6 +223,10 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
             <tr><td>Total Views</td>${playlists.map(p => `<td>${p.total_views.toLocaleString()}</td>`).join("")}</tr>
             <tr><td>Total Likes</td>${playlists.map(p => `<td>${p.total_likes.toLocaleString()}</td>`).join("")}</tr>
             <tr><td>Total Shares</td>${playlists.map(p => `<td>${p.total_shares.toLocaleString()}</td>`).join("")}</tr>
+            <tr><td>Total Comments</td>${playlists.map(p => `<td>${p.total_comments.toLocaleString()}</td>`).join("")}</tr>
+            <tr><td>Like to View Ratio</td>${playlists.map(p => `<td>${p.total_views > 0 ? ((p.total_likes / p.total_views) * 100).toFixed(2) : "0.00"}%</td>`).join("")}</tr>
+            <tr><td>Share to View Ratio</td>${playlists.map(p => `<td>${p.total_views > 0 ? ((p.total_shares / p.total_views) * 100).toFixed(2) : "0.00"}%</td>`).join("")}</tr>
+            <tr><td>Comment to View Ratio</td>${playlists.map(p => `<td>${p.total_views > 0 ? ((p.total_comments / p.total_views) * 100).toFixed(2) : "0.00"}%</td>`).join("")}</tr>
             <tr><td>Total Length</td>${playlists.map(p => `<td>${formatDuration(p.total_duration_seconds)}</td>`).join("")}</tr>
           </tbody>
         </table>
@@ -248,10 +274,10 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
     <div className="space-y-6">
       
       {/* ----------------- TOP METRIC BAR ----------------- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-950/20 border border-zinc-900 p-4 rounded-2xl">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 bg-indigo-500/5 border border-zinc-800 px-2 py-0.5 rounded">
               {isComparison ? (compareMode ? "Multi-Playlist Comparison" : "Playlist Analyzer (Individual)") : "Playlist Analyzer"}
             </span>
           </div>
@@ -262,17 +288,17 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
           </h2>
         </div>
 
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex gap-2.5 w-full md:w-auto">
           <button
             onClick={handleExportCsv}
-            className="flex-1 md:flex-initial bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 text-zinc-350 py-2 px-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            className="flex-1 md:flex-initial bg-transparent hover:bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white py-2 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
           >
             <BarChart3 size={13} />
             <span>Export CSV</span>
           </button>
           <button
             onClick={handleExportPdf}
-            className="flex-1 md:flex-initial bg-indigo-600 hover:bg-indigo-500 glow-btn text-white py-2 px-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            className="flex-1 md:flex-initial bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
           >
             <Download size={13} />
             <span>Export PDF Report</span>
@@ -282,21 +308,21 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
 
       {/* ----------------- COMPARE THEM PROMPT (2-4 Playlists) ----------------- */}
       {isComparison && (
-        <div className="glass p-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="glass p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
-            <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Layers size={13} />
-              Multi-Playlist Analysis Detected
+            <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Layers size={13} className="text-indigo-600" />
+              Multi-Playlist Analysis
             </h3>
-            <p className="text-xs text-zinc-355 font-medium">
+            <p className="text-xs text-zinc-450 font-medium">
               Would you like to compare these {playlists.length} playlists side-by-side or inspect them individually?
             </p>
           </div>
-          <div className="flex bg-zinc-950/80 p-1 border border-zinc-850 rounded-xl gap-1">
+          <div className="flex bg-zinc-950 p-1 border border-zinc-800 rounded-xl gap-1">
             <button
               onClick={() => setCompareMode(true)}
               className={`text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer transition-all ${
-                compareMode ? "bg-indigo-600 text-white shadow-glow" : "text-zinc-500 hover:text-zinc-350"
+                compareMode ? "bg-indigo-600 text-white" : "text-zinc-500 hover:text-zinc-350"
               }`}
             >
               Compare Side-by-Side
@@ -304,7 +330,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
             <button
               onClick={() => setCompareMode(false)}
               className={`text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer transition-all ${
-                !compareMode ? "bg-indigo-600 text-white shadow-glow" : "text-zinc-500 hover:text-zinc-355"
+                !compareMode ? "bg-indigo-600 text-white" : "text-zinc-500 hover:text-zinc-350"
               }`}
             >
               Inspect Individually
@@ -315,7 +341,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
 
       {/* ----------------- SUB-SELECTOR FOR INDIVIDUAL ANALYSIS ----------------- */}
       {isComparison && !compareMode && (
-        <div className="flex flex-wrap gap-2 bg-zinc-950/20 border border-zinc-900 p-3 rounded-2xl">
+        <div className="flex flex-wrap gap-2 bg-zinc-950/20 border border-zinc-800 p-3 rounded-2xl">
           <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center h-8 mr-2">
             Select Playlist:
           </span>
@@ -326,7 +352,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
               className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all cursor-pointer truncate max-w-[180px] ${
                 selectedPlaylistIdx === i
                   ? "bg-indigo-600/15 border-indigo-500 text-indigo-400 font-bold"
-                  : "bg-zinc-950/40 border-zinc-900 text-zinc-400 hover:border-zinc-800"
+                  : "bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700"
               }`}
               title={pl.title}
             >
@@ -366,7 +392,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
           {/* Speed Multipliers */}
           <div className="glass p-5 rounded-2xl space-y-4">
             <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-1.5"><Clock size={16} className="text-indigo-400" /> Duration Multipliers</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-zinc-900 pb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-zinc-800 pb-4">
               <div>
                 <span className="text-[10px] text-zinc-500 uppercase font-semibold">Total Duration</span>
                 <p className="text-base font-extrabold text-indigo-400 mt-1">{formatDuration(singlePlaylist.total_duration_seconds)}</p>
@@ -383,7 +409,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                 const hrs = Math.floor(durationSecs / 3600);
                 const mins = Math.floor((durationSecs % 3600) / 60);
                 return (
-                  <div key={i} className="bg-zinc-950/40 border border-zinc-900 p-3 rounded-xl text-center">
+                  <div key={i} className="bg-zinc-950/40 border border-zinc-800 p-3 rounded-xl text-center">
                     <span className="text-[9px] text-zinc-500 font-bold">{s.label}</span>
                     <p className="text-xs font-extrabold text-zinc-200 mt-0.5">{hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`}</p>
                   </div>
@@ -394,7 +420,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
 
           {/* Unified Lessons Index & Metrics Panel */}
           <div className="glass p-5 rounded-2xl space-y-5">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-900/60 pb-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-800/60 pb-4">
               <div>
                 <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
                   <List size={16} className="text-indigo-400" />
@@ -404,7 +430,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
               </div>
               
               {/* Tab Selector */}
-              <div className="flex bg-zinc-950/60 p-1 border border-zinc-900 rounded-xl gap-1">
+              <div className="flex bg-zinc-950/60 p-1 border border-zinc-800 rounded-xl gap-1">
                 <button
                   onClick={() => setViewTab("list")}
                   className={`text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer transition-all ${
@@ -425,7 +451,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
             </div>
 
             {/* Controls bar (always visible) */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-950/30 p-3 rounded-xl border border-zinc-900/40">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-950/30 p-3 rounded-xl border border-zinc-800/40">
               <div className="relative w-full sm:max-w-xs">
                 <Search className="absolute left-3 top-2.5 text-zinc-650" size={13} />
                 <input
@@ -471,7 +497,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                   processedVideos.map(item => (
                     <div
                       key={item.video.id}
-                      className="bg-zinc-950/50 border border-zinc-900 hover:border-zinc-800 p-3.5 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-colors"
+                      className="bg-zinc-950/50 border border-zinc-800 hover:border-zinc-700 p-3.5 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-colors"
                     >
                       <div className="min-w-0 space-y-1">
                         <h4 className="text-xs font-bold text-zinc-250 leading-snug">
@@ -479,6 +505,13 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                         </h4>
                         <p className="text-[10px] text-zinc-500 font-medium">
                           Duration: {formatDuration(item.video.duration_seconds)} • Published: {item.video.publish_date}
+                        </p>
+                        <p className="text-[9px] text-zinc-400/80 font-medium flex flex-wrap gap-x-2 gap-y-1 pt-0.5">
+                          <span>Like to View: {calculateRatios(item.video).likeToViewPct}% (1 like per {calculateRatios(item.video).viewToLike} views)</span>
+                          <span className="text-zinc-700">•</span>
+                          <span>Share to View: {calculateRatios(item.video).shareToViewPct}% (1 share per {calculateRatios(item.video).viewToShare} views)</span>
+                          <span className="text-zinc-700">•</span>
+                          <span>Comment to View: {calculateRatios(item.video).commentToViewPct}% (1 comment per {calculateRatios(item.video).viewToComment} views)</span>
                         </p>
                       </div>
                       
@@ -504,14 +537,14 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-xs text-zinc-500 italic bg-zinc-950/20 border border-dashed border-zinc-900 rounded-xl">
+                  <div className="text-center py-8 text-xs text-zinc-500 italic bg-zinc-950/20 border border-dashed border-zinc-800 rounded-xl">
                     No videos matched your search query.
                   </div>
                 )}
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex justify-between items-center bg-zinc-950/20 p-2 rounded-xl border border-zinc-900/60">
+                <div className="flex justify-between items-center bg-zinc-950/20 p-2 rounded-xl border border-zinc-800/60">
                   <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Select Metric to Chart:</span>
                   <div className="flex gap-1">
                     {(["duration", "views", "likes", "comments", "shares"] as const).map(c => (
@@ -530,7 +563,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                   </div>
                 </div>
 
-                <div className="h-60 w-full bg-zinc-950/20 p-4 border border-zinc-900/40 rounded-xl">
+                <div className="h-60 w-full bg-zinc-950/20 p-4 border border-zinc-800/40 rounded-xl">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={singleChartData}>
                       <XAxis dataKey="position" stroke="#52525b" fontSize={9} />
@@ -550,20 +583,52 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
       {isComparison && compareMode && metrics && (
         <div className="space-y-6">
           {/* Comparison summary cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {playlists.map((pl, i) => (
-              <div key={pl.id} className="glass p-5 rounded-2xl space-y-4 border-t-4 border-t-indigo-500">
-                <div className="w-14 aspect-video bg-zinc-900 rounded overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={pl.thumbnail_url} alt="" className="w-full h-full object-cover" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+            {playlists.map((pl, i) => {
+              const totalViews = pl.total_views;
+              const likeRate = totalViews > 0 ? ((pl.total_likes / totalViews) * 100).toFixed(2) : "0.00";
+              const shareRate = totalViews > 0 ? ((pl.total_shares / totalViews) * 100).toFixed(2) : "0.00";
+              const commentRate = totalViews > 0 ? ((pl.total_comments / totalViews) * 100).toFixed(2) : "0.00";
+
+              return (
+                <div key={pl.id} className="glass p-5 rounded-2xl space-y-4 hover:border-zinc-700 transition-colors">
+                  <div className="flex gap-3 items-center">
+                    <div className="w-14 aspect-video bg-zinc-900 rounded overflow-hidden border border-zinc-800 flex-shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={pl.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Playlist {String.fromCharCode(65 + i)}</span>
+                      <h3 className="text-xs font-bold text-zinc-100 leading-snug truncate mt-0.5" title={pl.title}>{pl.title}</h3>
+                      <p className="text-[10px] text-zinc-550 mt-0.5">By {pl.channel_title}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-zinc-800 space-y-1.5 text-[10px] text-zinc-400">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Total Videos</span>
+                      <span className="font-bold text-zinc-100">{pl.video_count}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Total Views</span>
+                      <span className="font-bold text-zinc-100">{pl.total_views.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Overall Like Rate</span>
+                      <span className="font-bold text-indigo-400">{likeRate}% <span className="text-[9px] text-zinc-500 font-medium">(1 per {pl.total_likes > 0 ? (totalViews / pl.total_likes).toFixed(0) : "N/A"} views)</span></span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Overall Share Rate</span>
+                      <span className="font-bold text-indigo-400">{shareRate}% <span className="text-[9px] text-zinc-500 font-medium">(1 per {pl.total_shares > 0 ? (totalViews / pl.total_shares).toFixed(0) : "N/A"} views)</span></span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Overall Comment Rate</span>
+                      <span className="font-bold text-indigo-400">{commentRate}% <span className="text-[9px] text-zinc-500 font-medium">(1 per {pl.total_comments > 0 ? (totalViews / pl.total_comments).toFixed(0) : "N/A"} views)</span></span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] text-indigo-400 font-bold uppercase">Playlist {String.fromCharCode(65 + i)}</span>
-                  <h3 className="text-xs font-bold text-zinc-150 leading-snug truncate mt-1" title={pl.title}>{pl.title}</h3>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">By {pl.channel_title}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Aggregates bench grid */}
@@ -573,28 +638,28 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
               <p className="text-base font-extrabold text-zinc-200">
                 Playlist {String.fromCharCode(65 + metrics.highest_videos_idx)}
               </p>
-              <span className="text-[10px] text-zinc-500">{playlists[metrics.highest_videos_idx].video_count} videos</span>
+              <span className="text-[10px] text-zinc-550">{playlists[metrics.highest_videos_idx].video_count} videos</span>
             </div>
             <div className="glass p-4 rounded-xl space-y-1">
               <span className="text-[10px] uppercase font-bold text-zinc-500">Highest Views</span>
               <p className="text-base font-extrabold text-zinc-200">
                 Playlist {String.fromCharCode(65 + metrics.highest_views_idx)}
               </p>
-              <span className="text-[10px] text-zinc-500">{playlists[metrics.highest_views_idx].total_views.toLocaleString()} views</span>
+              <span className="text-[10px] text-zinc-550">{playlists[metrics.highest_views_idx].total_views.toLocaleString()} views</span>
             </div>
             <div className="glass p-4 rounded-xl space-y-1">
               <span className="text-[10px] uppercase font-bold text-zinc-500">Highest Engagement</span>
               <p className="text-base font-extrabold text-zinc-200">
                 Playlist {String.fromCharCode(65 + metrics.highest_likes_idx)}
               </p>
-              <span className="text-[10px] text-zinc-500">{playlists[metrics.highest_likes_idx].total_likes.toLocaleString()} likes</span>
+              <span className="text-[10px] text-zinc-550">{playlists[metrics.highest_likes_idx].total_likes.toLocaleString()} likes</span>
             </div>
             <div className="glass p-4 rounded-xl space-y-1">
               <span className="text-[10px] uppercase font-bold text-zinc-500">Highest Shares</span>
               <p className="text-base font-extrabold text-zinc-200">
                 Playlist {String.fromCharCode(65 + metrics.highest_shares_idx)}
               </p>
-              <span className="text-[10px] text-zinc-500">{playlists[metrics.highest_shares_idx].total_shares.toLocaleString()} shares</span>
+              <span className="text-[10px] text-zinc-550">{playlists[metrics.highest_shares_idx].total_shares.toLocaleString()} shares</span>
             </div>
           </div>
 
@@ -607,7 +672,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                   <BarChart data={chartDataSummary}>
                     <XAxis dataKey="name" stroke="#52525b" fontSize={9} />
                     <YAxis stroke="#52525b" fontSize={9} />
-                    <Tooltip contentStyle={{ backgroundColor: "#09090b", borderColor: "#27272a" }} />
+                    <Tooltip contentStyle={{ backgroundColor: "#171717", borderColor: "#262626", borderRadius: "10px" }} />
                     <Bar dataKey="videos" name="Videos count" fill="#6366f1" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="duration" name="Total Duration (hrs)" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
                     <Legend wrapperStyle={{ fontSize: 9 }} />
@@ -623,7 +688,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                   <BarChart data={chartDataEngagement}>
                     <XAxis dataKey="name" stroke="#52525b" fontSize={9} />
                     <YAxis stroke="#52525b" fontSize={9} />
-                    <Tooltip contentStyle={{ backgroundColor: "#09090b", borderColor: "#27272a" }} />
+                    <Tooltip contentStyle={{ backgroundColor: "#171717", borderColor: "#262626", borderRadius: "10px" }} />
                     <Bar dataKey="views" name="Views (x1k)" fill="#6366f1" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="likes" name="Likes (x100)" fill="#ec4899" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="shares" name="Shares" fill="#14b8a6" radius={[3, 3, 0, 0]} />
@@ -671,7 +736,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                 
                 if (!videoJunction) {
                   return (
-                    <div key={pl.id} className="glass p-4 rounded-xl border border-dashed border-zinc-850 flex items-center justify-center min-h-[300px] text-zinc-650 text-xs">
+                    <div key={pl.id} className="glass p-4 rounded-xl border border-dashed border-zinc-800 flex items-center justify-center min-h-[300px] text-zinc-650 text-xs">
                       Playlist {String.fromCharCode(65 + i)} has no lesson at this position.
                     </div>
                   );
@@ -680,9 +745,9 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                 const { video } = videoJunction;
                 
                 return (
-                  <div key={pl.id} className="glass p-4 rounded-xl space-y-4 border border-zinc-900/60 hover:border-zinc-850 transition-colors">
+                  <div key={pl.id} className="glass p-4 rounded-xl space-y-4 border border-zinc-800 hover:border-zinc-700 transition-all bg-zinc-900">
                     <div>
-                      <span className="text-[9px] uppercase font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                      <span className="text-[9px] uppercase font-bold text-indigo-400 bg-indigo-500/5 border border-zinc-800 px-2 py-0.5 rounded">
                         Playlist {String.fromCharCode(65 + i)}
                       </span>
                       <h4 className="text-xs font-bold text-zinc-150 line-clamp-2 mt-2 leading-snug" title={video.title}>
@@ -691,7 +756,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                     </div>
 
                     {/* Compact Seeking Embed */}
-                    <div className="relative aspect-video bg-black rounded-lg overflow-hidden border border-zinc-900">
+                    <div className="relative aspect-video bg-black rounded-lg overflow-hidden border border-zinc-800">
                       <iframe
                         src={`https://www.youtube.com/embed/${video.id}?enablejsapi=1${seekVal !== null ? `&start=${Math.floor(seekVal)}&autoplay=1` : ""}`}
                         className="absolute inset-0 w-full h-full border-0"
@@ -701,22 +766,34 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                     </div>
 
                     {/* Stats table */}
-                    <div className="space-y-1.5 text-[10px] text-zinc-450">
-                      <div className="flex justify-between border-b border-zinc-950 py-1">
+                    <div className="space-y-1.5 text-[10px] text-zinc-400">
+                      <div className="flex justify-between border-b border-zinc-800 py-1">
                         <span>Views</span>
                         <strong className="text-zinc-200">{video.view_count.toLocaleString()}</strong>
                       </div>
-                      <div className="flex justify-between border-b border-zinc-950 py-1">
+                      <div className="flex justify-between border-b border-zinc-800 py-1">
                         <span>Likes</span>
                         <strong className="text-zinc-200">{video.like_count.toLocaleString()}</strong>
                       </div>
-                      <div className="flex justify-between border-b border-zinc-950 py-1">
+                      <div className="flex justify-between border-b border-zinc-800 py-1">
                         <span>Shares</span>
                         <strong className="text-zinc-200">{video.share_count.toLocaleString()}</strong>
                       </div>
-                      <div className="flex justify-between border-b border-zinc-950 py-1">
+                      <div className="flex justify-between border-b border-zinc-800 py-1">
                         <span>Comments</span>
                         <strong className="text-zinc-200">{video.comment_count.toLocaleString()}</strong>
+                      </div>
+                      <div className="flex justify-between border-b border-zinc-800 py-1">
+                        <span>Like to View Ratio</span>
+                        <strong className="text-zinc-200">{calculateRatios(video).likeToViewPct}% <span className="text-[9px] text-zinc-550 font-normal">({calculateRatios(video).viewToLike === "N/A" ? "N/A" : `1 per ${calculateRatios(video).viewToLike}`})</span></strong>
+                      </div>
+                      <div className="flex justify-between border-b border-zinc-800 py-1">
+                        <span>Share to View Ratio</span>
+                        <strong className="text-zinc-200">{calculateRatios(video).shareToViewPct}% <span className="text-[9px] text-zinc-550 font-normal">({calculateRatios(video).viewToShare === "N/A" ? "N/A" : `1 per ${calculateRatios(video).viewToShare}`})</span></strong>
+                      </div>
+                      <div className="flex justify-between border-b border-zinc-800 py-1">
+                        <span>Comment to View Ratio</span>
+                        <strong className="text-zinc-200">{calculateRatios(video).commentToViewPct}% <span className="text-[9px] text-zinc-550 font-normal">({calculateRatios(video).viewToComment === "N/A" ? "N/A" : `1 per ${calculateRatios(video).viewToComment}`})</span></strong>
                       </div>
                     </div>
 
@@ -729,7 +806,7 @@ export default function PlaylistDashboard({ response }: PlaylistDashboardProps) 
                             <button
                               key={idx}
                               onClick={() => setSeekTimes(prev => ({ ...prev, [pl.id]: p.seconds }))}
-                              className="text-[9px] font-bold text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500 hover:text-white px-2 py-0.5 rounded cursor-pointer transition-all"
+                              className="text-[9px] font-bold text-indigo-400 bg-indigo-500/5 border border-zinc-800 hover:bg-indigo-600 hover:text-white px-2 py-0.5 rounded cursor-pointer transition-all"
                             >
                               {p.timestamp} ({p.intensity}%)
                             </button>

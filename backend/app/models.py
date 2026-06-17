@@ -74,3 +74,29 @@ class Transcript(Base):
     character_count = Column(Integer, default=0)
     speaking_duration_seconds = Column(Integer, default=0)
     segments = Column(Text, nullable=True) # JSON list of segments
+
+class Channel(Base):
+    __tablename__ = "channels"
+
+    id = Column(String, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    handle = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    thumbnail_url = Column(String, nullable=True)
+    banner_url = Column(String, nullable=True)
+    subscriber_count = Column(Integer, default=0)
+    view_count = Column(Integer, default=0)
+    video_count = Column(Integer, default=0)
+    published_at = Column(String, nullable=True)
+    country = Column(String, nullable=True)
+    uploads_playlist_id = Column(String, nullable=True)
+    
+    # Cached derived stats (based on last 100 uploads)
+    average_views = Column(Float, default=0.0)
+    average_likes = Column(Float, default=0.0)
+    average_comments = Column(Float, default=0.0)
+    average_duration = Column(Float, default=0.0)
+    
+    is_mock = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+

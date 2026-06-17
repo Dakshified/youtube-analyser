@@ -17,7 +17,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
   const isComparison = videos.length > 1;
 
   // Comparison/Single hooks
-  const [compareMode, setCompareMode] = useState<boolean>(true);
+  const [compareMode, setCompareMode] = useState<boolean>(false);
   const [selectedVideoIdx, setSelectedVideoIdx] = useState<number>(0);
 
   const activeVideo = isComparison && !compareMode ? videos[selectedVideoIdx] : videos[0];
@@ -51,6 +51,24 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
       : `${mins}m ${secs}s`;
   };
 
+  const calculateRatios = (video: Video) => {
+    const views = video.view_count;
+    const likes = video.like_count;
+    const shares = video.share_count;
+    const comments = video.comment_count;
+
+    return {
+      viewToLike: likes > 0 ? (views / likes).toFixed(1) : "N/A",
+      likeToViewPct: views > 0 ? ((likes / views) * 100).toFixed(2) : "0.00",
+      
+      viewToShare: shares > 0 ? (views / shares).toFixed(1) : "N/A",
+      shareToViewPct: views > 0 ? ((shares / views) * 100).toFixed(2) : "0.00",
+      
+      viewToComment: comments > 0 ? (views / comments).toFixed(1) : "N/A",
+      commentToViewPct: views > 0 ? ((comments / views) * 100).toFixed(2) : "0.00",
+    };
+  };
+
   // CSV Export
   const handleExportCsv = () => {
     let headers: string[] = [];
@@ -68,7 +86,12 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
         ["Likes", singleVideo.like_count],
         ["Comments", singleVideo.comment_count],
         ["Shares", singleVideo.share_count],
-        ["Like/View Ratio (%)", ((singleVideo.like_count / singleVideo.view_count) * 100).toFixed(2)]
+        ["Like to View Ratio (%)", ((singleVideo.like_count / singleVideo.view_count) * 100).toFixed(2)],
+        ["1 Like per X Views", calculateRatios(singleVideo).viewToLike],
+        ["Share to View Ratio (%)", ((singleVideo.share_count / singleVideo.view_count) * 100).toFixed(2)],
+        ["1 Share per X Views", calculateRatios(singleVideo).viewToShare],
+        ["Comment to View Ratio (%)", ((singleVideo.comment_count / singleVideo.view_count) * 100).toFixed(2)],
+        ["1 Comment per X Views", calculateRatios(singleVideo).viewToComment]
       ];
     } else {
       headers = ["Metric", ...videos.map((_, i) => `Video ${String.fromCharCode(65 + i)}`)];
@@ -81,6 +104,12 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
         ["Likes", ...videos.map(v => v.like_count)],
         ["Comments", ...videos.map(v => v.comment_count)],
         ["Shares", ...videos.map(v => v.share_count)],
+        ["Like to View Ratio (%)", ...videos.map(v => ((v.like_count / v.view_count) * 100).toFixed(2))],
+        ["1 Like per X Views", ...videos.map(v => calculateRatios(v).viewToLike)],
+        ["Share to View Ratio (%)", ...videos.map(v => ((v.share_count / v.view_count) * 100).toFixed(2))],
+        ["1 Share per X Views", ...videos.map(v => calculateRatios(v).viewToShare)],
+        ["Comment to View Ratio (%)", ...videos.map(v => ((v.comment_count / v.view_count) * 100).toFixed(2))],
+        ["1 Comment per X Views", ...videos.map(v => calculateRatios(v).viewToComment)]
       ];
     }
 
@@ -121,6 +150,9 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
             <tr><td>Likes</td><td>${singleVideo.like_count.toLocaleString()}</td></tr>
             <tr><td>Comments</td><td>${singleVideo.comment_count.toLocaleString()}</td></tr>
             <tr><td>Shares</td><td>${singleVideo.share_count.toLocaleString()}</td></tr>
+            <tr><td>Like to View Ratio</td><td>${((singleVideo.like_count / singleVideo.view_count) * 100).toFixed(2)}% (1 per ${calculateRatios(singleVideo).viewToLike} views)</td></tr>
+            <tr><td>Share to View Ratio</td><td>${((singleVideo.share_count / singleVideo.view_count) * 100).toFixed(2)}% (1 per ${calculateRatios(singleVideo).viewToShare} views)</td></tr>
+            <tr><td>Comment to View Ratio</td><td>${((singleVideo.comment_count / singleVideo.view_count) * 100).toFixed(2)}% (1 per ${calculateRatios(singleVideo).viewToComment} views)</td></tr>
             <tr><td>Duration</td><td>${formatDuration(singleVideo.duration_seconds)}</td></tr>
             <tr><td>Category</td><td>${singleVideo.category || 'N/A'}</td></tr>
           </tbody>
@@ -143,6 +175,9 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
             <tr><td>Likes</td>${videos.map(v => `<td>${v.like_count.toLocaleString()}</td>`).join("")}</tr>
             <tr><td>Comments</td>${videos.map(v => `<td>${v.comment_count.toLocaleString()}</td>`).join("")}</tr>
             <tr><td>Shares</td>${videos.map(v => `<td>${v.share_count.toLocaleString()}</td>`).join("")}</tr>
+            <tr><td>Like to View Ratio</td>${videos.map(v => `<td>${calculateRatios(v).likeToViewPct}% (1 per ${calculateRatios(v).viewToLike} views)</td>`).join("")}</tr>
+            <tr><td>Share to View Ratio</td>${videos.map(v => `<td>${calculateRatios(v).shareToViewPct}% (1 per ${calculateRatios(v).viewToShare} views)</td>`).join("")}</tr>
+            <tr><td>Comment to View Ratio</td>${videos.map(v => `<td>${calculateRatios(v).commentToViewPct}% (1 per ${calculateRatios(v).viewToComment} views)</td>`).join("")}</tr>
             <tr><td>Duration</td>${videos.map(v => `<td>${formatDuration(v.duration_seconds)}</td>`).join("")}</tr>
           </tbody>
         </table>
@@ -194,10 +229,10 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
     <div className="space-y-6">
       
       {/* ----------------- TOP METRIC BAR ----------------- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-950/20 border border-zinc-900 p-4 rounded-2xl">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 bg-indigo-500/5 border border-zinc-800 px-2 py-0.5 rounded">
               {isComparison ? (compareMode ? "Multi-Video Comparison" : "Video Analyzer (Individual)") : "Video Analyzer"}
             </span>
           </div>
@@ -211,14 +246,14 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
         <div className="flex gap-2 w-full md:w-auto">
           <button
             onClick={handleExportCsv}
-            className="flex-1 md:flex-initial bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 text-zinc-355 py-2 px-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            className="flex-1 md:flex-initial bg-transparent hover:bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white py-2 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
           >
             <BarChart3 size={13} />
             <span>Export CSV</span>
           </button>
           <button
             onClick={handleExportReport}
-            className="flex-1 md:flex-initial bg-indigo-600 hover:bg-indigo-500 glow-btn text-white py-2 px-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            className="flex-1 md:flex-initial bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
           >
             <Download size={13} />
             <span>Export PDF Report</span>
@@ -228,21 +263,21 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
 
       {/* ----------------- COMPARE THEM PROMPT (2-4 Videos) ----------------- */}
       {isComparison && (
-        <div className="glass p-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="glass p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
-            <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Activity size={13} />
-              Multi-Video Analysis Detected
+            <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Activity size={13} className="text-indigo-600" />
+              Multi-Video Analysis
             </h3>
-            <p className="text-xs text-zinc-350 font-medium">
+            <p className="text-xs text-zinc-450 font-medium">
               Would you like to compare these {videos.length} videos side-by-side or inspect them individually?
             </p>
           </div>
-          <div className="flex bg-zinc-950/80 p-1 border border-zinc-850 rounded-xl gap-1">
+          <div className="flex bg-zinc-950 p-1 border border-zinc-800 rounded-xl gap-1">
             <button
               onClick={() => setCompareMode(true)}
               className={`text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer transition-all ${
-                compareMode ? "bg-indigo-600 text-white shadow-glow" : "text-zinc-500 hover:text-zinc-350"
+                compareMode ? "bg-indigo-600 text-white" : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
               Compare Side-by-Side
@@ -250,7 +285,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
             <button
               onClick={() => setCompareMode(false)}
               className={`text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer transition-all ${
-                !compareMode ? "bg-indigo-600 text-white shadow-glow" : "text-zinc-500 hover:text-zinc-355"
+                !compareMode ? "bg-indigo-600 text-white" : "text-zinc-500 hover:text-zinc-350"
               }`}
             >
               Inspect Individually
@@ -261,7 +296,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
 
       {/* ----------------- SUB-SELECTOR FOR INDIVIDUAL ANALYSIS ----------------- */}
       {isComparison && !compareMode && (
-        <div className="flex flex-wrap gap-2 bg-zinc-950/20 border border-zinc-900 p-3 rounded-2xl">
+        <div className="flex flex-wrap gap-2 bg-zinc-950/20 border border-zinc-800 p-3 rounded-2xl">
           <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center h-8 mr-2">
             Select Video:
           </span>
@@ -272,7 +307,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
               className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all cursor-pointer truncate max-w-[180px] ${
                 selectedVideoIdx === i
                   ? "bg-indigo-600/15 border-indigo-500 text-indigo-400 font-bold"
-                  : "bg-zinc-950/40 border-zinc-900 text-zinc-400 hover:border-zinc-800"
+                  : "bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700"
               }`}
               title={v.title}
             >
@@ -317,6 +352,37 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
               </div>
             </div>
 
+            {/* Engagement Ratios */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="glass p-4 rounded-xl space-y-1">
+                <span className="text-[10px] uppercase font-bold text-zinc-500">Like to View Ratio</span>
+                <p className="text-lg font-extrabold text-indigo-400">
+                  {calculateRatios(singleVideo).likeToViewPct}%
+                </p>
+                <p className="text-[10px] text-zinc-500">
+                  {calculateRatios(singleVideo).viewToLike === "N/A" ? "N/A" : `1 like per ${calculateRatios(singleVideo).viewToLike} views`}
+                </p>
+              </div>
+              <div className="glass p-4 rounded-xl space-y-1">
+                <span className="text-[10px] uppercase font-bold text-zinc-500">Share to View Ratio</span>
+                <p className="text-lg font-extrabold text-indigo-400">
+                  {calculateRatios(singleVideo).shareToViewPct}%
+                </p>
+                <p className="text-[10px] text-zinc-500">
+                  {calculateRatios(singleVideo).viewToShare === "N/A" ? "N/A" : `1 share per ${calculateRatios(singleVideo).viewToShare} views`}
+                </p>
+              </div>
+              <div className="glass p-4 rounded-xl space-y-1">
+                <span className="text-[10px] uppercase font-bold text-zinc-500">Comment to View Ratio</span>
+                <p className="text-lg font-extrabold text-indigo-400">
+                  {calculateRatios(singleVideo).commentToViewPct}%
+                </p>
+                <p className="text-[10px] text-zinc-500">
+                  {calculateRatios(singleVideo).viewToComment === "N/A" ? "N/A" : `1 comment per ${calculateRatios(singleVideo).viewToComment} views`}
+                </p>
+              </div>
+            </div>
+
             {/* Replay graph */}
             <div className="glass p-5 rounded-2xl space-y-4">
               <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-1.5">
@@ -355,15 +421,15 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
           <div className="space-y-6">
             <div className="glass p-5 rounded-2xl space-y-3.5 text-xs">
               <h3 className="text-sm font-bold text-zinc-100">Metadata Details</h3>
-              <div className="flex justify-between items-center py-2 border-b border-zinc-900">
+              <div className="flex justify-between items-center py-2 border-b border-zinc-800">
                 <span className="text-zinc-500">Published</span>
                 <span className="text-zinc-350 font-medium">{singleVideo.publish_date}</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-zinc-900">
+              <div className="flex justify-between items-center py-2 border-b border-zinc-800">
                 <span className="text-zinc-500">Duration</span>
                 <span className="text-zinc-350 font-medium">{formatDuration(singleVideo.duration_seconds)}</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-zinc-900">
+              <div className="flex justify-between items-center py-2 border-b border-zinc-800">
                 <span className="text-zinc-500">Category</span>
                 <span className="text-zinc-350 font-medium">{singleVideo.category || "Unknown"}</span>
               </div>
@@ -377,7 +443,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
                   <div 
                     key={idx}
                     onClick={() => setSeekTime(peak.seconds)}
-                    className="bg-zinc-950/60 hover:bg-zinc-900/60 border border-zinc-900 p-3 rounded-xl flex items-center justify-between cursor-pointer group transition-all"
+                    className="bg-zinc-950/60 hover:bg-zinc-900/60 border border-zinc-800 p-3 rounded-xl flex items-center justify-between cursor-pointer group transition-all"
                   >
                     <div className="flex items-center space-x-2.5">
                       <Play size={10} className="text-indigo-400" fill="currentColor" />
@@ -400,17 +466,38 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
       {isComparison && compareMode && metrics && (
         <div className="space-y-6">
           {/* Summary Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
             {videos.map((v, i) => (
-              <div key={v.id} className="glass p-5 rounded-2xl space-y-4 border-t-4 border-t-indigo-500">
-                <div className="w-14 aspect-video bg-zinc-900 rounded overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={v.thumbnail_url} alt="" className="w-full h-full object-cover" />
+              <div key={v.id} className="glass p-5 rounded-2xl space-y-4 hover:border-zinc-700 transition-colors">
+                <div className="flex gap-3 items-center">
+                  <div className="w-14 aspect-video bg-zinc-900 rounded overflow-hidden border border-zinc-800 flex-shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={v.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Video {String.fromCharCode(65 + i)}</span>
+                    <h3 className="text-xs font-bold text-zinc-100 leading-snug truncate mt-0.5" title={v.title}>{v.title}</h3>
+                    <p className="text-[10px] text-zinc-550 mt-0.5">By {v.channel_title}</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] text-indigo-400 font-bold uppercase">Video {String.fromCharCode(65 + i)}</span>
-                  <h3 className="text-xs font-bold text-zinc-150 leading-snug truncate mt-1" title={v.title}>{v.title}</h3>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">By {v.channel_title}</p>
+                
+                <div className="pt-3 border-t border-zinc-800 space-y-1.5 text-[10px] text-zinc-400">
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Views</span>
+                    <span className="font-bold text-zinc-100">{v.view_count.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Like/View</span>
+                    <span className="font-bold text-indigo-400">{calculateRatios(v).likeToViewPct}% <span className="text-[9px] text-zinc-550 font-medium">(1 per {calculateRatios(v).viewToLike})</span></span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Share/View</span>
+                    <span className="font-bold text-indigo-400">{calculateRatios(v).shareToViewPct}% <span className="text-[9px] text-zinc-550 font-medium">(1 per {calculateRatios(v).viewToShare})</span></span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Comment/View</span>
+                    <span className="font-bold text-indigo-400">{calculateRatios(v).commentToViewPct}% <span className="text-[9px] text-zinc-550 font-medium">(1 per {calculateRatios(v).viewToComment})</span></span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -427,7 +514,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
                     <XAxis dataKey="name" stroke="#52525b" fontSize={9} />
                     <YAxis stroke="#52525b" fontSize={9} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: "#09090b", borderColor: "#27272a", borderRadius: "10px" }}
+                      contentStyle={{ backgroundColor: "#171717", borderColor: "#262626", borderRadius: "10px" }}
                       labelStyle={{ color: "#a1a1aa", fontSize: "10px" }}
                     />
                     <Bar dataKey="views" name="Views" fill="#6366f1" radius={[3, 3, 0, 0]} />
@@ -445,12 +532,12 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
                     <XAxis dataKey="name" stroke="#52525b" fontSize={9} />
                     <YAxis stroke="#52525b" fontSize={9} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: "#09090b", borderColor: "#27272a", borderRadius: "10px" }}
+                      contentStyle={{ backgroundColor: "#171717", borderColor: "#262626", borderRadius: "10px" }}
                       labelStyle={{ color: "#a1a1aa", fontSize: "10px" }}
                     />
                     <Bar dataKey="likes" name="Likes" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="comments" name="Comments" fill="#ec4899" radius={[3, 3, 0, 0]} />
-                    <Legend wrapperStyle={{ fontSize: 8, pt: 3 }} />
+                    <Legend wrapperStyle={{ fontSize: 8, paddingTop: 3 }} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -465,7 +552,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
                     <XAxis dataKey="name" stroke="#52525b" fontSize={9} />
                     <YAxis stroke="#52525b" fontSize={9} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: "#09090b", borderColor: "#27272a", borderRadius: "10px" }}
+                      contentStyle={{ backgroundColor: "#171717", borderColor: "#262626", borderRadius: "10px" }}
                       labelStyle={{ color: "#a1a1aa", fontSize: "10px" }}
                     />
                     <Bar dataKey="shares" name="Shares" fill="#14b8a6" radius={[3, 3, 0, 0]} />
@@ -481,15 +568,15 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-900 text-zinc-500 font-bold uppercase">
+                  <tr className="border-b border-zinc-800 text-zinc-500 font-bold uppercase">
                     <th className="py-3 px-2">Metric</th>
                     {videos.map((_, i) => (
                       <th key={i} className="py-3 px-2">Video {String.fromCharCode(65 + i)}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-900/60 font-medium text-zinc-350">
-                  <tr>
+                <tbody className="divide-y divide-zinc-800 font-medium text-zinc-300">
+                  <tr className="hover:bg-zinc-900/40 transition-colors">
                     <td className="py-3 px-2 text-zinc-500 font-bold">Views</td>
                     {videos.map((v, i) => (
                       <td key={i} className={`py-3 px-2 ${metrics.highest_views_idx === i ? "text-indigo-400 font-bold" : ""}`}>
@@ -497,7 +584,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
                       </td>
                     ))}
                   </tr>
-                  <tr>
+                  <tr className="hover:bg-zinc-900/40 transition-colors">
                     <td className="py-3 px-2 text-zinc-500 font-bold">Likes</td>
                     {videos.map((v, i) => (
                       <td key={i} className={`py-3 px-2 ${metrics.highest_likes_idx === i ? "text-indigo-400 font-bold" : ""}`}>
@@ -505,7 +592,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
                       </td>
                     ))}
                   </tr>
-                  <tr>
+                  <tr className="hover:bg-zinc-900/40 transition-colors">
                     <td className="py-3 px-2 text-zinc-500 font-bold">Shares</td>
                     {videos.map((v, i) => (
                       <td key={i} className={`py-3 px-2 ${metrics.highest_shares_idx === i ? "text-indigo-400 font-bold" : ""}`}>
@@ -513,7 +600,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
                       </td>
                     ))}
                   </tr>
-                  <tr>
+                  <tr className="hover:bg-zinc-900/40 transition-colors">
                     <td className="py-3 px-2 text-zinc-500 font-bold">Comments</td>
                     {videos.map((v, i) => (
                       <td key={i} className={`py-3 px-2 ${metrics.highest_comments_idx === i ? "text-indigo-400 font-bold" : ""}`}>
@@ -521,7 +608,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
                       </td>
                     ))}
                   </tr>
-                  <tr>
+                  <tr className="hover:bg-zinc-900/40 transition-colors">
                     <td className="py-3 px-2 text-zinc-500 font-bold">Duration</td>
                     {videos.map((v, i) => (
                       <td key={i} className={`py-3 px-2 ${metrics.highest_duration_idx === i ? "text-indigo-400 font-bold" : ""}`}>
@@ -529,7 +616,7 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
                       </td>
                     ))}
                   </tr>
-                  <tr>
+                  <tr className="hover:bg-zinc-900/40 transition-colors">
                     <td className="py-3 px-2 text-zinc-500 font-bold">Views / Day (Avg)</td>
                     {videos.map((_, i) => (
                       <td key={i} className="py-3 px-2">
@@ -537,15 +624,40 @@ export default function VideoDashboard({ response }: VideoDashboardProps) {
                       </td>
                     ))}
                   </tr>
-                  <tr>
-                    <td className="py-3 px-2 text-zinc-500 font-bold">Like/View Ratio</td>
-                    {videos.map((_, i) => (
-                      <td key={i} className="py-3 px-2">
-                        {metrics.like_view_ratios[i]}%
-                      </td>
-                    ))}
+                  <tr className="hover:bg-zinc-900/40 transition-colors">
+                    <td className="py-3 px-2 text-zinc-500 font-bold">Like to View Ratio</td>
+                    {videos.map((v, i) => {
+                      const ratios = calculateRatios(v);
+                      return (
+                        <td key={i} className="py-3 px-2">
+                          {ratios.likeToViewPct}% <span className="text-[10px] text-zinc-500">({ratios.viewToLike === "N/A" ? "N/A" : `1 per ${ratios.viewToLike}`})</span>
+                        </td>
+                      );
+                    })}
                   </tr>
-                  <tr>
+                  <tr className="hover:bg-zinc-900/40 transition-colors">
+                    <td className="py-3 px-2 text-zinc-500 font-bold">Share to View Ratio</td>
+                    {videos.map((v, i) => {
+                      const ratios = calculateRatios(v);
+                      return (
+                        <td key={i} className="py-3 px-2">
+                          {ratios.shareToViewPct}% <span className="text-[10px] text-zinc-500">({ratios.viewToShare === "N/A" ? "N/A" : `1 per ${ratios.viewToShare}`})</span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr className="hover:bg-zinc-900/40 transition-colors">
+                    <td className="py-3 px-2 text-zinc-500 font-bold">Comment to View Ratio</td>
+                    {videos.map((v, i) => {
+                      const ratios = calculateRatios(v);
+                      return (
+                        <td key={i} className="py-3 px-2">
+                          {ratios.commentToViewPct}% <span className="text-[10px] text-zinc-500">({ratios.viewToComment === "N/A" ? "N/A" : `1 per ${ratios.viewToComment}`})</span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr className="hover:bg-zinc-900/40 transition-colors">
                     <td className="py-3 px-2 text-zinc-500 font-bold">Publish Date</td>
                     {videos.map((v, i) => (
                       <td key={i} className="py-3 px-2">{v.publish_date}</td>
